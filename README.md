@@ -16,6 +16,16 @@
   <img alt="licenca MIT" src="https://raw.githubusercontent.com/bittencourtthulio/MemoX/main/.github/assets/badge-license.svg">
 </p>
 
+<p>
+  <a href="https://bittencourtthulio.github.io/expxdev/#memox"><strong>📘 Documentação do método</strong></a>
+  &nbsp;·&nbsp;
+  <a href="https://bittencourtthulio.github.io/expxdev/#memox">O índice</a>
+  &nbsp;·&nbsp;
+  <a href="https://bittencourtthulio.github.io/expxdev/#ecossistema">O ecossistema</a>
+  &nbsp;·&nbsp;
+  <a href="https://bittencourtthulio.github.io/expxdev/#schema">Contratos</a>
+</p>
+
 <strong>A camada de memória do método Expx</strong> — entrega o que o projeto já sabe<br>
 sobre um arquivo antes do plano existir, para <a href="https://claude.com/claude-code">Claude Code</a> e <a href="https://opencode.ai">OpenCode</a>.
 
