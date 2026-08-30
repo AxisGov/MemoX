@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="250" viewBox="0 0 1000 250" role="img" aria-label="memox — a camada de memoria do metodo Expx">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#a371f7"/><stop offset="100%" stop-color="#a371f7" stop-opacity="0.5"/>
+    </linearGradient>
+    <pattern id="p" width="26" height="26" patternUnits="userSpaceOnUse">
+      <path d="M26 0H0v26" fill="none" stroke="#161b22" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="1000" height="250" rx="14" fill="#0d1117"/>
+  <rect width="1000" height="250" rx="14" fill="url(#p)"/>
+  <rect x="0" y="0" width="6" height="250" rx="3" fill="url(#g)"/>
+
+  <text x="56" y="98" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="64" font-weight="700" fill="#e6edf3">memox</text>
+  <rect x="300" y="62" width="140" height="30" rx="15" fill="none" stroke="#a371f7" stroke-width="1.5"/>
+  <text x="370" y="82" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13.5" fill="#a371f7">metodo Expx</text>
+
+  <text x="57" y="134" font-family="-apple-system,Segoe UI,Roboto,sans-serif" font-size="17" fill="#8b949e">O que o projeto ja sabe, entregue antes de alguem perguntar</text>
+
+  <g font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="12.5">
+    <rect x="56"  y="162" width="122" height="34" rx="8" fill="#1c2430"/>
+    <text x="117" y="184" text-anchor="middle" fill="#e6edf3">artefatos</text>
+    <rect x="190" y="162" width="106" height="34" rx="8" fill="#1c2430"/>
+    <text x="243" y="184" text-anchor="middle" fill="#e6edf3">indice</text>
+    <rect x="308" y="162" width="112" height="34" rx="8" fill="#1c2430"/>
+    <text x="364" y="184" text-anchor="middle" fill="#e6edf3">sinais</text>
+    <rect x="432" y="162" width="116" height="34" rx="8" fill="#1c2430"/>
+    <text x="490" y="184" text-anchor="middle" fill="#e6edf3">injecao</text>
+    <rect x="560" y="162" width="146" height="34" rx="8" fill="#1c2430"/>
+    <text x="633" y="184" text-anchor="middle" fill="#e6edf3">plano melhor</text>
+  </g>
+  <g stroke="#a371f7" stroke-width="1.5" fill="none" opacity="0.7">
+    <path d="M181 179h6"/><path d="M299 179h6"/><path d="M423 179h6"/><path d="M551 179h6"/>
+  </g>
+
+  <text x="944" y="218" text-anchor="end" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="12" fill="#8b949e">Claude Code  +  OpenCode</text>
+</svg>
