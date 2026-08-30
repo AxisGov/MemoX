@@ -51,9 +51,10 @@ O método Expx é um conjunto de skills que se compõem, instaladas e mantidas p
 | **[stackx](https://github.com/bittencourtthulio/stackx)** | **camada** de convenções do repositório | fonte independente: as convenções não entram no índice |
 | **[mergex](https://github.com/bittencourtthulio/mergex)** | entrega: branch, commit por task, PR e pacote de QA | arquivo com histórico de regressão sobe de faixa de atenção |
 | **[prodx](https://github.com/bittencourtthulio/prodx)** | **camada** de produto: decide **se** há trabalho | o índice indexa o `INDICE.md` e os vereditos; é o que faz a verificação de existência melhorar com o tempo |
+| **[buildx](https://github.com/bittencourtthulio/buildx)** | orquestra um projeto inteiro, da descrição ao sistema pronto | consulta o índice no B5, para não repetir uma tentativa que já falhou; projeto que ela cria nasce com a suíte instalada, então o índice existe desde o primeiro commit — quando mais se decide coisa |
 | **memox** *(este repositório)* | **camada** de memória do projeto | — |
 
-**Camadas** (`memox`, `stackx`, `legadox`, `prodx`) sozinhas não fazem nada — elas modificam o comportamento da `sprintx`, da `runx` e da `mergex`. Sem índice construído, nada muda: as irmãs se comportam como se comportariam sem esta skill.
+**Camadas** (`memox`, `stackx`, `legadox`, `prodx`) sozinhas não fazem nada — elas modificam o comportamento da `sprintx`, da `runx` e da `mergex`. Sem índice construído, nada muda: as irmãs se comportam como se comportariam sem esta skill. A `buildx` é a exceção na direção oposta: é a única peça que **depende** de outras para rodar — a `memox` continua opcional para ela, e sua ausência só faz o B5 perder a consulta.
 
 Detalhes do ecossistema inteiro no [README do expxdev](https://github.com/bittencourtthulio/expxdev).
 
@@ -376,6 +377,7 @@ As três condições da regra de regressão não se flexibilizam sem o caso de u
 <div align="center">
 <sub>Parte do método <strong>Expx</strong> ·
 <a href="https://github.com/bittencourtthulio/expxdev">expxdev</a> ·
+<a href="https://github.com/bittencourtthulio/buildx">buildx</a> ·
 <a href="https://github.com/bittencourtthulio/sprintx">sprintx</a> ·
 <a href="https://github.com/bittencourtthulio/runx">runx</a> ·
 <a href="https://github.com/bittencourtthulio/legadox">legadox</a> ·
