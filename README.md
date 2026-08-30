@@ -40,9 +40,10 @@ O método Expx é um conjunto de skills que se compõem, instaladas e mantidas p
 | **[legadox](https://github.com/bittencourtthulio/legadox)** | **camada** de segurança para código legado | consome regressão e reprovação em QA como entrada do cálculo de raio |
 | **[stackx](https://github.com/bittencourtthulio/stackx)** | **camada** de convenções do repositório | fonte independente: as convenções não entram no índice |
 | **[mergex](https://github.com/bittencourtthulio/mergex)** | entrega: branch, commit por task, PR e pacote de QA | arquivo com histórico de regressão sobe de faixa de atenção |
+| **[prodx](https://github.com/bittencourtthulio/prodx)** | **camada** de produto: decide **se** há trabalho | o índice indexa o `INDICE.md` e os vereditos; é o que faz a verificação de existência melhorar com o tempo |
 | **memox** *(este repositório)* | **camada** de memória do projeto | — |
 
-**Camadas** (`memox`, `stackx`, `legadox`) sozinhas não fazem nada — elas modificam o comportamento da `sprintx`, da `runx` e da `mergex`. Sem índice construído, nada muda: as irmãs se comportam como se comportariam sem esta skill.
+**Camadas** (`memox`, `stackx`, `legadox`, `prodx`) sozinhas não fazem nada — elas modificam o comportamento da `sprintx`, da `runx` e da `mergex`. Sem índice construído, nada muda: as irmãs se comportam como se comportariam sem esta skill.
 
 Detalhes do ecossistema inteiro no [README do expxdev](https://github.com/bittencourtthulio/expxdev).
 
