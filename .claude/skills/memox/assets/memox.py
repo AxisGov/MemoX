@@ -553,6 +553,51 @@ def coletar(raiz, cfg):
             reg["ferramenta"] = reg["ferramenta"] or fm.get("expx_tool")
             reg["data"] = reg["data"] or fm.get("concluido_em") or fm.get("atualizado_em")
 
+    # --- FECHAMENTO.md — o lado Build do relatorio tecnico -------------------
+    #
+    # O `fechamento` da sprintx cumpre o mesmo papel do `relatorio_tecnico` da
+    # runx: e o registro do que a feature entregou. Sem ler este kind, feature
+    # nova fecha e continua invisivel para quem pergunta "quem ja mexeu neste
+    # arquivo" — a propria sprintx promete o contrario no seu 00-schema.md.
+    #
+    # Profundidade 4: o layout novo e docs/sprintx/features/<slug>/FECHAMENTO.md.
+    for base in {os.path.join(raiz, fontes["features"]), dir_man}:
+        for caminho in _listar(base, "FECHAMENTO.md", profundidade=4):
+            rel = _rel(raiz, caminho)
+            texto, tipos = redigir(_texto(caminho))
+            marcar(rel, tipos)
+            fm, corpo = ler_frontmatter(texto)
+            conferir(fm, rel)
+            tid = fm.get("trabalho_id") or os.path.basename(os.path.dirname(caminho))
+            reg = registro(str(tid), rel)
+            if reg is None:
+                continue
+            reg["titulo"] = reg["titulo"] or fm.get("titulo")
+            reg["tipo_trabalho"] = reg["tipo_trabalho"] or fm.get("tipo_trabalho")
+            reg["ferramenta"] = reg["ferramenta"] or fm.get("expx_tool")
+            reg["data"] = reg["data"] or fm.get("fechado_em")
+            reg["modulos"] = sorted(set(reg["modulos"]) | set(_lista(fm.get("modulo_afetado"))))
+            reg["arquivos_alterados"] = sorted(
+                set(reg["arquivos_alterados"]) | set(_lista(fm.get("arquivos_alterados")))
+            )
+            # `risco_residual` do fechamento e sempre uma frase, nunca null
+            # (regra dura do kind): quando nada ficou, a skill escreve a frase
+            # que diz isso. Por isso entra direto, sem tratar ausencia.
+            if fm.get("risco_residual"):
+                reg["risco_residual"] = _uma_linha(str(fm["risco_residual"]))
+            if fm.get("decisao_principal"):
+                reg["decisoes"].append({
+                    "id": "D-principal",
+                    "decisao": _uma_linha(str(fm["decisao_principal"])),
+                    "alternativa_descartada": None,
+                    "motivo": None,
+                    "status": "fechada",
+                    "origem": rel,
+                })
+            reg["resumo"] = reg["resumo"] or _uma_linha(
+                str(fm.get("resumo") or "") or corpo
+            )
+
     # --- base/00-LACUNAS.md -------------------------------------------------
     for base in {os.path.join(raiz, fontes["features"]), dir_man}:
         for caminho in _listar(base, "00-LACUNAS.md", profundidade=4):
