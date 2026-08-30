@@ -102,7 +102,33 @@ Requisito: `python3`. O motor usa apenas a biblioteca padrão — sem dependênc
 
 O memox não tem fluxo próprio: ele produz um índice que as outras skills consultam.
 
-### Claude Code
+### Pelo CLI do método (recomendado)
+
+O [`expxdev`](https://github.com/bittencourtthulio/expxdev) instala o memox por completo — a
+skill, os comandos, os dois hooks com bit de execução e o registro em `.claude/settings.json`:
+
+```bash
+npx expxdev init --skills sprintx,memox
+```
+
+O CLI trata o memox como **camada**: sozinho ele não faz nada, então precisa vir acompanhado de
+`sprintx` ou `runx`. Ele avisa se você pedir só a camada, mas nunca impede.
+
+Duas coisas que o CLI garante e que a instalação manual erra com facilidade:
+
+- **o hook e o motor ficam irmãos.** O hook resolve o motor como
+  `DIR_HOOK/../skills/memox/assets/memox.py`; se a skill não estiver em `.claude/skills/`, o
+  hook sai `0` em silêncio e não faz nada;
+- **o registro é idempotente.** Rodar o `init` de novo não duplica a entrada do hook, o que
+  faria o memox rodar duas vezes por prompt.
+
+`npx expxdev doctor` acusa `memox-sem-motor` se essa relação quebrar — é o único jeito de ver
+uma instalação quebrada, já que o hook falha em silêncio por projeto.
+
+O painel (`npx expxdev panel`) lê o índice e mostra, na seção **Memória**, os arquivos de
+risco, as regressões com sua evidência, as coincidências recusadas e os artefatos contaminados.
+
+### Claude Code (manual)
 
 ```bash
 cp -r .claude/skills/memox      <projeto>/.claude/skills/
