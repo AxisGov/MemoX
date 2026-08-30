@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 420" role="img" aria-label="Fluxo do memox: os artefatos das outras skills alimentam o indice, que injeta o historico quando um trabalho declara arquivos, e o sinal de regressao alimenta o raio do legadox.">
+  <title>Fluxo do memox</title>
+
+  <defs>
+    <marker id="seta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5b6470"/>
+    </marker>
+    <marker id="seta-destaque" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#b3541e"/>
+    </marker>
+  </defs>
+
+  <rect width="960" height="420" fill="#ffffff"/>
+
+  <!-- ================= COLUNA 1 — ARTEFATOS ================= -->
+  <text x="30" y="34" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="bold" fill="#1c2530">ARTEFATOS DAS OUTRAS CAMADAS</text>
+  <text x="30" y="52" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#5b6470">ja curados e revisados por humano</text>
+
+  <rect x="30" y="66" width="230" height="42" rx="4" fill="#f4f6f8" stroke="#c8cfd8"/>
+  <text x="42" y="84" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#1c2530">runx</text>
+  <text x="42" y="100" font-family="monospace" font-size="10" fill="#5b6470">01-CAUSA-RAIZ.md · QA.md</text>
+
+  <rect x="30" y="116" width="230" height="42" rx="4" fill="#f4f6f8" stroke="#c8cfd8"/>
+  <text x="42" y="134" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#1c2530">sprintx</text>
+  <text x="42" y="150" font-family="monospace" font-size="10" fill="#5b6470">00-DECISOES.md · 00-LACUNAS.md</text>
+
+  <rect x="30" y="166" width="230" height="42" rx="4" fill="#f4f6f8" stroke="#c8cfd8"/>
+  <text x="42" y="184" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#1c2530">relatorios</text>
+  <text x="42" y="200" font-family="monospace" font-size="10" fill="#5b6470">tecnico.md · INDICE.md</text>
+
+  <rect x="30" y="216" width="230" height="42" rx="4" fill="#f4f6f8" stroke="#c8cfd8"/>
+  <text x="42" y="234" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#1c2530">mergex</text>
+  <text x="42" y="250" font-family="monospace" font-size="10" fill="#5b6470">entregas/ENTREGA.md</text>
+
+  <rect x="30" y="266" width="230" height="42" rx="4" fill="#f4f6f8" stroke="#c8cfd8"/>
+  <text x="42" y="284" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#1c2530">legadox</text>
+  <text x="42" y="300" font-family="monospace" font-size="10" fill="#5b6470">DIVIDA.md · PERFIL.md</text>
+
+  <text x="30" y="336" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#8a93a0">transcript de conversa NAO e indexado</text>
+
+  <!-- setas artefatos -> indice -->
+  <path d="M 264 87 L 336 160" stroke="#5b6470" stroke-width="1.3" fill="none" marker-end="url(#seta)"/>
+  <path d="M 264 137 L 336 170" stroke="#5b6470" stroke-width="1.3" fill="none" marker-end="url(#seta)"/>
+  <path d="M 264 187 L 336 187" stroke="#5b6470" stroke-width="1.3" fill="none" marker-end="url(#seta)"/>
+  <path d="M 264 237 L 336 204" stroke="#5b6470" stroke-width="1.3" fill="none" marker-end="url(#seta)"/>
+  <path d="M 264 287 L 336 214" stroke="#5b6470" stroke-width="1.3" fill="none" marker-end="url(#seta)"/>
+
+  <!-- ================= COLUNA 2 — O INDICE ================= -->
+  <text x="348" y="34" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="bold" fill="#1c2530">O INDICE</text>
+  <text x="348" y="52" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#5b6470">indice invertido, sem embedding</text>
+
+  <rect x="348" y="66" width="244" height="252" rx="6" fill="#eef2f6" stroke="#7d8896" stroke-width="1.4"/>
+
+  <text x="364" y="90" font-family="monospace" font-size="11" font-weight="bold" fill="#1c2530">.expx/memoria/indice.json</text>
+
+  <rect x="364" y="102" width="212" height="26" rx="3" fill="#ffffff" stroke="#c8cfd8"/>
+  <text x="374" y="119" font-family="monospace" font-size="10" fill="#3a4551">por arquivo · por modulo</text>
+
+  <rect x="364" y="134" width="212" height="26" rx="3" fill="#ffffff" stroke="#c8cfd8"/>
+  <text x="374" y="151" font-family="monospace" font-size="10" fill="#3a4551">por decisao · por termo</text>
+
+  <text x="364" y="180" font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="bold" fill="#1c2530">sinais derivados</text>
+
+  <rect x="364" y="188" width="212" height="24" rx="3" fill="#ffffff" stroke="#c8cfd8"/>
+  <text x="374" y="204" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#3a4551">n de trabalhos · ultimo trabalho</text>
+
+  <rect x="364" y="216" width="212" height="24" rx="3" fill="#ffffff" stroke="#c8cfd8"/>
+  <text x="374" y="232" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#3a4551">reprovacoes em QA · divida · risco</text>
+
+  <rect x="364" y="244" width="212" height="30" rx="3" fill="#fbeee4" stroke="#b3541e" stroke-width="1.4"/>
+  <text x="374" y="263" font-family="Helvetica, Arial, sans-serif" font-size="9.5" font-weight="bold" fill="#8a3f16">REGRESSAO: o arquivo que sempre volta</text>
+
+  <text x="364" y="292" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#5b6470">derivado e descartavel: reconstroi</text>
+  <text x="364" y="306" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#5b6470">do zero, sempre com proveniencia</text>
+
+  <!-- ================= COLUNA 3 — INJECAO ================= -->
+  <text x="628" y="34" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="bold" fill="#1c2530">CHEGA SEM PEDIR</text>
+  <text x="628" y="52" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#5b6470">no momento em que alguem declara</text>
+
+  <path d="M 596 150 L 660 150" stroke="#5b6470" stroke-width="1.3" fill="none" marker-end="url(#seta)"/>
+
+  <rect x="664" y="66" width="266" height="60" rx="4" fill="#f4f6f8" stroke="#c8cfd8"/>
+  <text x="676" y="86" font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="bold" fill="#1c2530">um trabalho declara arquivos</text>
+  <text x="676" y="102" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#5b6470">plano da sprintx · causa raiz da runx</text>
+  <text x="676" y="116" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#5b6470">raio da legadox · faixa da mergex</text>
+
+  <path d="M 796 130 L 796 156" stroke="#5b6470" stroke-width="1.3" fill="none" marker-end="url(#seta)"/>
+
+  <rect x="664" y="160" width="266" height="94" rx="4" fill="#eef2f6" stroke="#7d8896" stroke-width="1.4"/>
+  <text x="676" y="180" font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="bold" fill="#1c2530">o memox injeta o que sabe</text>
+  <text x="676" y="198" font-family="monospace" font-size="9" fill="#3a4551">OC-2026-0142 (2026-08-29) bug</text>
+  <text x="676" y="212" font-family="monospace" font-size="9" fill="#3a4551">arredondamento acima de 50kg</text>
+  <text x="676" y="226" font-family="monospace" font-size="9" fill="#5b6470">ver: docs/relatorios/.../tecnico.md</text>
+  <text x="676" y="244" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#5b6470">antes do plano existir · max 3 + sinais</text>
+
+  <rect x="664" y="264" width="266" height="30" rx="4" fill="#ffffff" stroke="#c8cfd8" stroke-dasharray="4 3"/>
+  <text x="676" y="283" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#5b6470">nada relevante: silencio total</text>
+
+  <!-- ================= REGRESSAO -> LEGADOX ================= -->
+  <path d="M 470 318 L 470 354 L 664 354" stroke="#b3541e" stroke-width="1.6" fill="none" marker-end="url(#seta-destaque)"/>
+  <text x="484" y="348" font-family="Helvetica, Arial, sans-serif" font-size="10" font-weight="bold" fill="#8a3f16">sinal de regressao</text>
+
+  <rect x="664" y="334" width="266" height="40" rx="4" fill="#fbeee4" stroke="#b3541e" stroke-width="1.4"/>
+  <text x="676" y="352" font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="bold" fill="#8a3f16">alimenta o raio da legadox</text>
+  <text x="676" y="367" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#8a3f16">o que ja quebrou, que a estrutura nao sabe</text>
+
+  <!-- rodape -->
+  <text x="30" y="400" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#8a93a0">memox — a memoria do metodo Expx · consulta local e instantanea: sem rede, sem modelo, sem banco vetorial</text>
+</svg>

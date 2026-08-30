@@ -1,0 +1,9 @@
+# indice derivado do memox: reconstruivel, nao versionado (regra 8)
+.expx/memoria/
+
+# python
+__pycache__/
+*.py[cod]
+
+# sistema
+.DS_Store
