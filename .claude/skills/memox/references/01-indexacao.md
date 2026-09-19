@@ -34,8 +34,18 @@ Nunca edite `indice.json` à mão. Ele é derivado: qualquer correção feita ne
 | `docs/manutencao/*/QA.md` | `veredito`, `executado_em`, `achados` (severidade, arquivo, problema) | frontmatter `kind: qa`, ou a linha `VEREDITO:` da prosa |
 | `docs/entregas/*/ENTREGA.md` | `branch`, `commits`, faixa de atenção por arquivo | frontmatter `kind: entrega` |
 | `*/ORQUESTRADOR.md` | `titulo`, `tipo_trabalho`, `tipo_ocorrencia`, `concluido_em` | frontmatter `kind: orquestrador` |
+| `<trabalho>/base/00-INDICE.md` | `modulo_injetado`, `modulo_fatias`, `modulo_verificado_em` | frontmatter `kind: base_indice` |
+| `<catalogo>/INDICE.md` do `modulex` | um registro por módulo: id, problema, fatias, data de verificação | frontmatter `kind: modulo_indice` |
+| `MODULO.md`, **seções 1 e 2** | problema e sinônimos — as chaves de busca | frontmatter `kind: modulo` |
+| `<catalogo>/LACUNAS.md` do `modulex` | termos buscados sem resultado, com contagem | tabela em prosa |
 
 O frontmatter é a fonte primária de todo campo estruturado. A prosa só é lida para o que não existe no YAML: a causa em uma linha, o risco residual e as lacunas.
+
+**Do catálogo de módulos entram só as chaves de busca.** Os artefatos de código e as seções 9 a 12 do `MODULO.md` — plano de fases, inventário, cadeia de falha, catálogo de erros — **ficam de fora**. São grandes, mudam a cada verificação, e não servem para achar nada: quem precisa delas já sabe qual módulo quer, e as recebe pela injeção do `modulex`. Indexá-las incha o índice sem melhorar uma busca sequer.
+
+**O caminho do catálogo não é fixo.** Ele vive fora do projeto e se resolve pela cadeia do `modulex`: `$MODULEX_CATALOGO` → `.expx/modulex/docs/modulos/` → `docs/modulos/`. Nenhum degrau alcançável significa que essas três fontes não existem — e isso **nunca bloqueia a indexação**, exatamente como a ausência de `docs/legado/`.
+
+A chave `modulo_injetado` do `base/00-INDICE.md` tem um uso que as outras não têm: **a ausência da chave e o valor nulo dizem coisas diferentes.** Base sem a chave é base escrita antes do `modulex` — não entra no denominador do indicador. Base com a chave e valor nulo é feature que teve a chance de consultar e não achou módulo — essa entra.
 
 ### 1.3 — Chaves construídas
 
@@ -45,6 +55,8 @@ O frontmatter é a fonte primária de todo campo estruturado. A prosa só é lid
 | `por_modulo` | módulo → o mesmo, agregado |
 | `por_decisao` | módulo → decisões que o afetam, com alternativa descartada e motivo |
 | `por_termo` | termo → ids de trabalho, sobre título, causa e resumo |
+| `por_modulo_catalogo` | termo → módulos cujo problema ou sinônimos casam |
+| `por_lacuna` | termo buscado sem resultado → contagem de repetições |
 
 O campo `papel` distingue `alterado` (o trabalho mudou o arquivo, vindo de `arquivos_alterados`) de `impactado` (o trabalho apontou o arquivo na causa raiz, vindo de `arquivos_impactados`). **A distinção é o que torna o sinal de regressão possível** — não a apague ao agregar.
 

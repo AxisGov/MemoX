@@ -39,6 +39,21 @@ Cada fonte contribui campos específicos, e toda entrada guarda o caminho do art
 | `base/00-LACUNAS.md` de cada trabalho | o que a documentação não respondia |
 | `docs/manutencao/*/QA.md` | reprovações — o sinal mais forte de área frágil |
 | `docs/entregas/*/ENTREGA.md` | branch, commits e faixa de atenção por arquivo |
+| `<catalogo>/INDICE.md` do `modulex` | um registro por módulo: id, problema, fatias, data de verificação |
+| `MODULO.md`, **seções 1 e 2** | problema e sinônimos — as chaves de busca, e só elas |
+| `<catalogo>/LACUNAS.md` do `modulex` | o que foi procurado e não existe, com quantas vezes |
+
+**Do catálogo de módulos entram só as chaves de busca.** Os artefatos de código
+e as seções 9 a 12 do `MODULO.md` — plano, inventário, cadeia de falha, catálogo
+de erros — **ficam de fora**. Elas são grandes, mudam a cada verificação, e não
+servem para achar nada: quem precisa delas já sabe qual módulo quer, e as recebe
+pela injeção do `modulex`. Indexá-las incha o índice sem melhorar uma busca
+sequer.
+
+O caminho do catálogo não é fixo: resolva pela cadeia do `modulex`
+(`$MODULEX_CATALOGO` → `.expx/modulex/docs/modulos/` → `docs/modulos/`). Nenhum
+degrau alcançável significa que essas três fontes não existem — e isso nunca
+bloqueia a indexação.
 
 ### Chaves do índice
 
@@ -48,6 +63,8 @@ Cada fonte contribui campos específicos, e toda entrada guarda o caminho do art
 | por módulo | o mesmo, agregado por módulo |
 | por decisão | decisões que afetam cada módulo |
 | por termo | busca textual simples sobre título, causa e resumo |
+| por módulo do catálogo | módulos cujo problema ou sinônimos casam com um termo |
+| por lacuna | termos buscados sem resultado, com contagem |
 
 ## Sinais derivados
 
@@ -60,6 +77,40 @@ Além de listar, o índice calcula por arquivo e por módulo:
 - **se está em zona de risco** declarada no `PERFIL.md`;
 - **se tem dívida** registrada no `DIVIDA.md`;
 - **faixa de atenção mais frequente** nas entregas.
+- **quantas vezes um termo foi buscado sem resultado** no catálogo de módulos.
+
+### O sinal de termo buscado sem resultado
+
+Cada busca do `modulex` que termina em `NAO EXISTE` vira uma linha no
+`LACUNAS.md` do catálogo. A contagem por termo é o que transforma falha de busca
+em pauta — e ela tem **dois ramos que se parecem e custam coisas muito
+diferentes**:
+
+```
+busca falha no M0
+  → linha no LACUNAS.md
+    → termo repetido SEM modulo   → candidato a extracao (M2)
+    → termo repetido COM modulo   → sinonimo faltando na secao 2
+```
+
+O segundo ramo é o que ninguém lembra de olhar, e é o mais barato de consertar:
+**uma linha na seção 2 de um `MODULO.md` conserta uma busca que falhava havia
+meses.** O primeiro custa uma extração inteira.
+
+**Distinguir os dois é trabalho humano, e o memox não o faz.** Ele apresenta a
+contagem, mostra os módulos cujo problema encosta no termo, e diz que a
+distinção é humana. Confundi-los custa uma extração desnecessária — ou, pior,
+deixa um módulo existente invisível para sempre.
+
+### De onde saem os sinônimos que faltam
+
+Do **relatório de uso do runx**, que descreve o sistema na linguagem do cliente.
+É de lá que saem os termos que ninguém pensaria em escrever ao extrair um
+módulo.
+
+Cruzar o problema de uma feature com o módulo que foi injetado nela devolve o
+**vocabulário real** que levou até aquele módulo — que é exatamente o que a
+seção 2 deveria ter e não tem.
 
 ### O sinal de regressão
 
@@ -124,6 +175,7 @@ Ao executar uma etapa, leia o arquivo dela em `references/` antes de qualquer a�
 | `runx` | consulta na E1 sobre os arquivos impactados; dispara reindexação na E5 | `references/integracao/runx.md` |
 | `legadox` | consome regressão e reprovação em QA como entrada do cálculo de raio | `references/integracao/legadox.md` |
 | `mergex` | consulta na classificação de atenção: histórico de regressão sobe a faixa | `references/integracao/mergex.md` |
+| `modulex` | o memox indexa problema, sinônimos e lacunas do catálogo, e responde os dois números do indicador do ciclo. É o que faz a consulta do M0 melhorar com o tempo | `references/03-consulta.md` |
 
 Nenhuma integração altera comportamento quando o memox não está instalado.
 

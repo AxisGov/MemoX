@@ -6,7 +6,7 @@ Quatro modos de consulta, todos sobre o índice em disco. **Sem chamada de model
 
 `.expx/memoria/indice.json` existe. Se não existir, o motor reconstrói na hora da primeira consulta e segue — reconstruir é barato (etapa 5). Se não houver artefato nenhum, a consulta devolve silêncio.
 
-## Os quatro modos
+## Os cinco modos
 
 | Modo | Comando | Pergunta que responde |
 |---|---|---|
@@ -14,6 +14,7 @@ Quatro modos de consulta, todos sobre o índice em disco. **Sem chamada de model
 | por módulo | `memox.py modulo <nome>` | o que se sabe sobre esta área |
 | por termo | `memox.py buscar <termo>` | onde este assunto já apareceu |
 | por trabalho | `memox.py trabalho <id>` | o histórico completo de uma ocorrência ou feature |
+| por ciclo de módulo | `memox.py ciclo-modulo` | os dois números do indicador do `modulex` |
 
 Todos aceitam `--formato json` para consumo por outra skill, e `--raiz <dir>` para consultar um projeto que não é o diretório atual.
 
@@ -21,6 +22,29 @@ Todos aceitam `--formato json` para consumo por outra skill, e `--raiz <dir>` pa
 
 - **Arquivo**: casa o caminho exato; não achando, casa por sufixo (`calculo.ts` → `src/frete/calculo.ts`). Mais de um candidato, o memox **lista os candidatos e não escolhe** — adivinhar o arquivo errado dá uma resposta confiante e errada.
 - **Módulo** e **trabalho**: mesma regra, por substring.
+
+### O modo `ciclo-modulo` — o indicador do modulex
+
+**Só o memox tem os dois números juntos**, e é por isso que este modo existe aqui
+e não no `modulex`:
+
+```
+features com integracao de terceiro que consultaram modulo: <n de N>
+dessas, quantas viraram modulo novo: <n>
+```
+
+- o **primeiro** sai do índice de trabalhos cruzado com `modulo_injetado` no
+  frontmatter da base de cada feature;
+- o **segundo**, do `INDICE.md` do catálogo, pelos módulos cuja procedência
+  aponta para um trabalho indexado aqui.
+
+Os dois juntos, porque **cada um sozinho mente**: leitura alta com escrita zero
+é catálogo apodrecendo — lido, envelhecendo, e ninguém devolve o que aprendeu.
+Escrita alta com leitura zero é consulta cara demais. Zero e zero é uma skill
+que não pegou.
+
+**Sem esta consulta nada quebra:** o `/modulex` reporta só o que o catálogo sabe
+e avisa que a leitura está parcial. Menos preciso, nunca bloqueante.
 
 ## Formato da resposta
 

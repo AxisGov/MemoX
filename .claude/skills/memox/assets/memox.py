@@ -12,6 +12,7 @@ Uso:
     memox.py modulo  <nome>    [--raiz DIR] [--formato texto|json]
     memox.py buscar  <termo>   [--raiz DIR] [--formato texto|json]
     memox.py trabalho <id>     [--raiz DIR] [--formato texto|json]
+    memox.py ciclo-modulo      [--raiz DIR] [--formato texto|json]
 
 Regras que este codigo implementa (ver SKILL.md):
   1. toda entrada aponta para um artefato real, com caminho e data;
@@ -414,6 +415,10 @@ def coletar(raiz, cfg):
                 "qa": None,
                 "entrega": None,
                 "resumo": None,
+                "modulo_injetado": None,
+                "modulo_fatias": [],
+                "modulo_verificado_em": None,
+                "declara_modulo": False,
                 "fontes": [],
             }
         reg = trabalhos[tid]
@@ -597,6 +602,34 @@ def coletar(raiz, cfg):
             reg["resumo"] = reg["resumo"] or _uma_linha(
                 str(fm.get("resumo") or "") or corpo
             )
+
+    # --- base/00-INDICE.md: o modulo que a F1 injetou -----------------------
+    # So as tres chaves de modulo. O MODULO.md inteiro nao entra no indice:
+    # plano, inventario, cadeia de falha e catalogo de erros sao grandes, mudam
+    # a cada verificacao e nao servem para achar nada.
+    for base in {os.path.join(raiz, fontes["features"]), dir_man}:
+        for caminho in _listar(base, "00-INDICE.md", profundidade=4):
+            rel = _rel(raiz, caminho)
+            texto, tipos = redigir(_texto(caminho))
+            marcar(rel, tipos)
+            fm, _ = ler_frontmatter(texto)
+            if "modulo_injetado" not in fm:
+                continue  # base anterior ao modulex: nao conta no denominador
+            conferir(fm, rel, exige_frontmatter=False)
+            tid = fm.get("trabalho_id") or os.path.basename(
+                os.path.dirname(os.path.dirname(caminho)))
+            reg = registro(str(tid), rel)
+            if reg is None:
+                continue
+            reg["declara_modulo"] = True
+            mid = fm.get("modulo_injetado")
+            if mid:
+                reg["modulo_injetado"] = str(mid)
+                fatias = fm.get("modulo_fatias") or []
+                if isinstance(fatias, list):
+                    reg["modulo_fatias"] = [str(f) for f in fatias]
+                ver = fm.get("modulo_verificado_em")
+                reg["modulo_verificado_em"] = str(ver) if ver else None
 
     # --- base/00-LACUNAS.md -------------------------------------------------
     for base in {os.path.join(raiz, fontes["features"]), dir_man}:
@@ -1412,6 +1445,103 @@ def comando_injetar(raiz, cfg, entrada_bruta):
 # cli
 # ---------------------------------------------------------------------------
 
+def consultar_ciclo_modulo(indice, raiz):
+    """Os dois numeros do indicador do modulex.
+
+    So o memox os tem juntos: o primeiro sai das bases das features indexadas
+    aqui, o segundo do INDICE.md do catalogo, que vive fora do projeto.
+    """
+    trabalhos = list((indice.get("trabalhos") or {}).values())
+    declaram = [t for t in trabalhos if t.get("declara_modulo")]
+    consultaram = [t for t in declaram if t.get("modulo_injetado")]
+
+    catalogo = _catalogo(raiz)
+    extraidos = None
+    vencidos = None
+    if catalogo:
+        ids = {t["trabalho_id"] for t in trabalhos}
+        extraidos, vencidos = 0, 0
+        for mod in catalogo.get("modulos") or []:
+            proc = str(mod.get("extraido_de") or "")
+            if any(tid and tid in proc for tid in ids):
+                extraidos += 1
+            if not mod.get("verificado_em"):
+                vencidos += 1
+
+    return {
+        "tipo": "ciclo_modulo",
+        "catalogo": catalogo.get("_origem") if catalogo else None,
+        "bases_que_declaram": len(declaram),
+        "consultaram_modulo": len(consultaram),
+        "modulos_injetados": sorted({t["modulo_injetado"] for t in consultaram}),
+        "extraidos_daqui": extraidos,
+        "modulos_no_catalogo": len(catalogo.get("modulos") or []) if catalogo else None,
+        "sem_verificacao": vencidos,
+    }
+
+
+def _catalogo(raiz):
+    """Resolve o catalogo do modulex pela cadeia de quatro degraus.
+
+    $MODULEX_CATALOGO -> .expx/modulex/docs/modulos/ -> docs/modulos/ -> nada.
+    Sem rede e sem caminho absoluto embutido. Nenhum degrau alcancavel nunca
+    bloqueia: devolve None, e quem chamou reporta leitura parcial.
+    """
+    degraus = []
+    env = os.environ.get("MODULEX_CATALOGO")
+    if env:
+        degraus.append((1, env))
+    degraus.append((2, os.path.join(raiz, ".expx", "modulex", "docs", "modulos")))
+    degraus.append((3, os.path.join(raiz, "docs", "modulos")))
+    for n, base in degraus:
+        alvo = os.path.join(base, "modulos.json")
+        if not os.path.isfile(alvo):
+            continue
+        try:
+            with open(alvo, "r", encoding="utf-8") as fh:
+                dados = json.load(fh)
+        except (OSError, ValueError):
+            continue  # catalogo corrompido conta como ausente; reparar e M2/M3
+        if not isinstance(dados, dict):
+            continue
+        # Degrau 1 aponta para fora do projeto: nomeia a variavel, nunca o
+        # caminho — caminho absoluto em saida e proibido no metodo inteiro.
+        dados["_origem"] = ("$MODULEX_CATALOGO (degrau 1)" if n == 1
+                            else "%s (degrau %d)" % (_rel(raiz, base), n))
+        return dados
+    return None
+
+
+def formatar_ciclo_modulo(res):
+    linhas = ["memox — ciclo do modulex", ""]
+    if res["catalogo"] is None:
+        linhas.append("  catalogo: nao alcancavel a partir deste projeto")
+    else:
+        linhas.append("  catalogo: %s · %d modulos"
+                      % (res["catalogo"], res["modulos_no_catalogo"]))
+    linhas.append("")
+    linhas.append("  features com base que declara modulo: %d"
+                  % res["bases_que_declaram"])
+    linhas.append("  dessas, quantas consultaram modulo:   %d"
+                  % res["consultaram_modulo"])
+    if res["extraidos_daqui"] is None:
+        linhas.append("  dessas, quantas viraram modulo novo:  NAO DETERMINADO"
+                      " (sem catalogo)")
+    else:
+        linhas.append("  modulos do catalogo extraidos daqui:  %d"
+                      % res["extraidos_daqui"])
+    if res["modulos_injetados"]:
+        linhas.append("")
+        linhas.append("  modulos injetados: %s" % ", ".join(res["modulos_injetados"]))
+    linhas += [
+        "",
+        "  O denominador conta so as bases que DECLARAM a chave modulo_injetado.",
+        "  Feature que integrou terceiro sem base do sprintx com modulex nao e",
+        "  detectavel por aqui, e nao entra na conta: e leitura parcial, nao zero.",
+    ]
+    return "\n".join(linhas)
+
+
 def main(argv):
     if len(argv) < 2:
         sys.stdout.write(__doc__)
@@ -1489,6 +1619,13 @@ def main(argv):
         resultado = consultar_termo(indice, alvo, cfg)
     elif comando == "trabalho":
         resultado = consultar_trabalho(indice, alvo)
+    elif comando == "ciclo-modulo":
+        resultado = consultar_ciclo_modulo(indice, raiz)
+        if formato == "json":
+            sys.stdout.write(json.dumps(resultado, ensure_ascii=False))
+            return 0
+        sys.stdout.write(formatar_ciclo_modulo(resultado) + "\n")
+        return 0
     else:
         sys.stderr.write("memox: comando desconhecido '%s'\n" % comando)
         return 2
