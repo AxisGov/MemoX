@@ -32,7 +32,11 @@ PY="$(command -v python3 || true)"
 [ -n "$PY" ] || exit 0
 
 # raiz = repositorio git mais proximo do cwd; sem git, o cwd
-RAIZ="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -d "$CLAUDE_PROJECT_DIR" ]; then
+  RAIZ="$(cd "$CLAUDE_PROJECT_DIR" && pwd)"
+else
+  RAIZ="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+fi
 
 # --- inativo sem artefato: nao existe memoria a injetar --------------------
 if [ ! -d "$RAIZ/docs/relatorios" ] && [ ! -d "$RAIZ/docs/manutencao" ] \

@@ -30,7 +30,9 @@ import json
 import os
 import re
 import sys
+import tempfile
 import time
+import unicodedata
 
 VERSAO_INDICE = 1
 
@@ -57,7 +59,8 @@ def raiz_projeto(inicio=None):
     """Raiz do repositorio Git mais proxima; sem .git, o diretorio atual."""
     atual = os.path.abspath(inicio or os.getcwd())
     while True:
-        if os.path.isdir(os.path.join(atual, ".git")):
+        # Em worktrees, `.git` e um arquivo que aponta para o diretorio real.
+        if os.path.exists(os.path.join(atual, ".git")):
             return atual
         pai = os.path.dirname(atual)
         if pai == atual:
@@ -76,10 +79,20 @@ def carregar_config(raiz):
         try:
             with open(caminho, encoding="utf-8") as fh:
                 usuario = json.load(fh)
+            if not isinstance(usuario, dict):
+                return cfg
             for chave, valor in usuario.items():
-                if isinstance(valor, dict) and isinstance(cfg.get(chave), dict):
-                    cfg[chave].update(valor)
-                else:
+                padrao = cfg.get(chave)
+                if isinstance(padrao, dict):
+                    if isinstance(valor, dict):
+                        cfg[chave].update(valor)
+                elif isinstance(padrao, list):
+                    if isinstance(valor, list):
+                        cfg[chave] = valor
+                elif isinstance(padrao, int) and not isinstance(padrao, bool):
+                    if isinstance(valor, int) and not isinstance(valor, bool):
+                        cfg[chave] = valor
+                elif isinstance(valor, type(padrao)):
                     cfg[chave] = valor
         except (ValueError, OSError):
             pass  # config invalida nao derruba a consulta: falha aberta
@@ -260,12 +273,18 @@ def ler_frontmatter(texto):
 # ---------------------------------------------------------------------------
 
 PADROES_SEGREDO = [
+    # O bloco inteiro precisa sumir. Redigir apenas o cabecalho ainda deixaria
+    # no indice o material base64 da chave privada.
+    (re.compile(
+        r"-----BEGIN ([A-Z0-9 ]*PRIVATE KEY)-----.*?"
+        r"(?:-----END \1-----|\Z)",
+        re.DOTALL,
+    ), "chave_privada"),
     (re.compile(r"\b(sk-[A-Za-z0-9]{16,}|sk-ant-[A-Za-z0-9\-_]{16,})\b"), "chave_api"),
     (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "chave_aws"),
     (re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"), "token_github"),
     (re.compile(r"\bxox[baprs]-[A-Za-z0-9\-]{10,}\b"), "token_slack"),
     (re.compile(r"\beyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\b"), "jwt"),
-    (re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"), "chave_privada"),
     (re.compile(r"(?i)\b(?:senha|password|passwd|secret|api[_-]?key|token)\b\s*[:=]\s*['\"]?[^\s'\"]{8,}"), "credencial"),
     (re.compile(r"\b[a-z]+://[^\s:@/]+:[^\s:@/]+@[^\s/]+"), "url_com_credencial"),
     (re.compile(r"\b\d{3}\.\d{3}\.\d{3}-\d{2}\b"), "cpf"),
@@ -284,6 +303,13 @@ def redigir(texto):
             achados.append(tipo)
             saida = padrao.sub(MARCA_REDIGIDO, saida)
     return saida, sorted(set(achados))
+
+
+def _sem_acentos(texto):
+    return "".join(
+        ch for ch in unicodedata.normalize("NFKD", texto or "")
+        if not unicodedata.combining(ch)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -819,7 +845,10 @@ def construir_indice(raiz, cfg):
             "papel": papel,
             "artefato": next(
                 (f for f in reg.get("fontes", []) if f.endswith("tecnico.md")),
-                (reg.get("fontes") or [None])[0],
+                next(
+                    (f for f in reg.get("fontes", []) if f.endswith("FECHAMENTO.md")),
+                    (reg.get("fontes") or [None])[0],
+                ),
             ),
         }
 
@@ -899,16 +928,23 @@ def construir_indice(raiz, cfg):
         ]
         datas = sorted([e["data"] for e in entradas if _data_ord(e.get("data"))], reverse=True)
         regs_modulo, vistas_reg = [], set()
+        reprovacoes_modulo, vistas_reprovacao = [], set()
         for a in arquivos_do_modulo:
             for r in sinais_arquivo[a]["regressoes"]:
                 chave = (r["trabalho_anterior"], r["trabalho_posterior"], tuple(r["arquivos"]))
                 if chave not in vistas_reg:
                     vistas_reg.add(chave)
                     regs_modulo.append(r)
+            for rep in sinais_arquivo[a]["detalhe_reprovacoes"]:
+                chave = (rep.get("trabalho_id"), rep.get("origem"))
+                if chave not in vistas_reprovacao:
+                    vistas_reprovacao.add(chave)
+                    reprovacoes_modulo.append(rep)
         sinais_modulo[modulo] = {
             "trabalhos": len({e["trabalho_id"] for e in entradas}),
             "ultimo_trabalho_em": datas[0] if datas else None,
-            "reprovacoes_qa": sum(sinais_arquivo[a]["reprovacoes_qa"] for a in arquivos_do_modulo),
+            "reprovacoes_qa": len(reprovacoes_modulo),
+            "detalhe_reprovacoes": reprovacoes_modulo,
             "regressoes": regs_modulo,
             "arquivos": sorted(arquivos_do_modulo),
         }
@@ -939,24 +975,43 @@ def construir_indice(raiz, cfg):
         "artefatos_contaminados": contaminados,
         "fora_do_indice": avisos,
         "config": cfg,
+        "assinatura_fontes": assinatura_fontes(raiz, cfg),
     }
     return indice
+
+
+def _gravar_atomico(caminho, conteudo):
+    """Grava no mesmo diretorio e publica com replace, sem nome temporario fixo."""
+    diretorio = os.path.dirname(caminho)
+    os.makedirs(diretorio, exist_ok=True)
+    descritor, tmp = tempfile.mkstemp(prefix=".%s." % os.path.basename(caminho),
+                                     suffix=".tmp", dir=diretorio, text=True)
+    try:
+        with os.fdopen(descritor, "w", encoding="utf-8") as fh:
+            fh.write(conteudo)
+        os.replace(tmp, caminho)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 def gravar_indice(raiz, indice):
     destino = dir_memoria(raiz)
     os.makedirs(destino, exist_ok=True)
     caminho = os.path.join(destino, "indice.json")
-    tmp = caminho + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(indice, fh, ensure_ascii=False, separators=(",", ":"))
-    os.replace(tmp, caminho)
-    with open(os.path.join(destino, "ultima-indexacao"), "w", encoding="utf-8") as fh:
-        fh.write("%d\n" % int(time.time()))
+    _gravar_atomico(caminho, json.dumps(
+        indice, ensure_ascii=False, separators=(",", ":")
+    ))
+    _gravar_atomico(os.path.join(destino, "ultima-indexacao"),
+                    "%d\n" % int(time.time()))
     cfg_path = os.path.join(destino, "config.json")
     if not os.path.isfile(cfg_path):
-        with open(cfg_path, "w", encoding="utf-8") as fh:
-            json.dump(CONFIG_PADRAO, fh, ensure_ascii=False, indent=2)
+        _gravar_atomico(cfg_path, json.dumps(
+            CONFIG_PADRAO, ensure_ascii=False, indent=2
+        ))
     _garantir_gitignore(raiz)
     return caminho
 
@@ -979,7 +1034,36 @@ def _garantir_gitignore(raiz):
 
 ALVOS_REINDEX = ("tecnico.md", "INDICE.md", "01-CAUSA-RAIZ.md", "00-DECISOES.md",
                  "QA.md", "ENTREGA.md", "DIVIDA.md", "PERFIL.md", "00-LACUNAS.md",
-                 "ORQUESTRADOR.md")
+                 "ORQUESTRADOR.md", "FECHAMENTO.md")
+
+def assinatura_fontes(raiz, cfg):
+    """Snapshot barato que tambem detecta exclusoes e renomeacoes."""
+    assinatura = []
+    fontes = cfg.get("fontes") or {}
+    ignorar = set(cfg.get("ignorar") or [])
+    for chave in ("relatorios", "manutencao", "entregas", "legado", "features"):
+        relativo = fontes.get(chave)
+        if not isinstance(relativo, str):
+            continue
+        base = os.path.join(raiz, relativo)
+        if not os.path.isdir(base):
+            continue
+        base_nivel = base.rstrip(os.sep).count(os.sep)
+        for atual, dirs, arqs in os.walk(base):
+            dirs[:] = [d for d in dirs if not d.startswith(".") and d not in ignorar]
+            if atual.count(os.sep) - base_nivel > 4:
+                dirs[:] = []
+                continue
+            for arq in arqs:
+                if arq not in ALVOS_REINDEX:
+                    continue
+                caminho = os.path.join(atual, arq)
+                try:
+                    st = os.stat(caminho)
+                except OSError:
+                    continue
+                assinatura.append([_rel(raiz, caminho), st.st_size, st.st_mtime_ns])
+    return sorted(assinatura)
 
 
 def precisa_reindexar(raiz, cfg):
@@ -993,28 +1077,12 @@ def precisa_reindexar(raiz, cfg):
         return True
     try:
         with open(marca, encoding="utf-8") as fh:
-            ultima = int(fh.read().strip())
+            int(fh.read().strip())
     except (OSError, ValueError):
         return True
-    for chave in ("relatorios", "manutencao", "entregas", "legado", "features"):
-        base = os.path.join(raiz, cfg["fontes"][chave])
-        if not os.path.isdir(base):
-            continue
-        base_nivel = base.rstrip(os.sep).count(os.sep)
-        for atual, dirs, arqs in os.walk(base):
-            dirs[:] = [d for d in dirs
-                       if not d.startswith(".") and d not in cfg.get("ignorar", [])]
-            if atual.count(os.sep) - base_nivel > 4:
-                dirs[:] = []
-                continue
-            for arq in arqs:
-                if arq in ALVOS_REINDEX:
-                    try:
-                        if os.path.getmtime(os.path.join(atual, arq)) > ultima:
-                            return True
-                    except OSError:
-                        continue
-    return False
+    indice = carregar_indice(raiz)
+    return bool(not indice or
+                indice.get("assinatura_fontes") != assinatura_fontes(raiz, cfg))
 
 
 def carregar_indice(raiz):
@@ -1352,7 +1420,7 @@ def montar_injecao(indice, cfg, texto):
     """Bloco a injetar no contexto. String vazia = silencio (regra 5)."""
     if not indice or not indice.get("trabalhos"):
         return ""
-    if not RE_GATILHO.search(texto or ""):
+    if not RE_GATILHO.search(_sem_acentos(texto)):
         return ""
     arquivos, modulos = extrair_alvos(texto, indice)
     if not arquivos and not modulos:
