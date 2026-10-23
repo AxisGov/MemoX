@@ -26,7 +26,7 @@ Sempre disponível, sempre integral. Use após importar artefatos de outro proje
 {
   "hooks": {
     "Stop": [
-      { "hooks": [{ "type": "command", "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/memox-reindexar.sh" }] }
+      { "hooks": [{ "type": "command", "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/memox-reindexar.sh\"" }] }
     ]
   }
 }
