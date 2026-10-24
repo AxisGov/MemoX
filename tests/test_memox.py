@@ -65,6 +65,12 @@ class MemoxRegressoesTest(unittest.TestCase):
             "client_secret: 'ab cd ef'": "ab cd ef",
             'senha: "minha frase"': "minha frase",
             "**Senha:** hunter2": "hunter2",
+            # aspa escapada nao encerra o valor; nome entre aspas (JSON) ou em
+            # negrito (Markdown); asterisco dentro do valor nao o corta
+            'client_secret: "ab\\"cd ef"': "cd ef",
+            '{"password": "abc"}': "abc",
+            "**password**: abc": "abc",
+            "password: ab*cd": "*cd",
         }
         for texto, segredo in casos.items():
             with self.subTest(texto=texto):
@@ -84,6 +90,8 @@ class MemoxRegressoesTest(unittest.TestCase):
             "Decisao: usar token JWT; senha com hash bcrypt",
             "senha:\nproxima linha legitima",
             'password: ""',
+            '{"token_count": 3, "max_tokens": 4096}',
+            '{"password": ""}',
         ]
         for texto in legitimos:
             with self.subTest(texto=texto):

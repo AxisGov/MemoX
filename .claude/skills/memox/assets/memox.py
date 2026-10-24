@@ -287,15 +287,17 @@ PADROES_SEGREDO = [
     (re.compile(r"\beyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\b"), "jwt"),
     # Credencial nomeada: o nome pode vir prefixado (AWS_SECRET_ACCESS_KEY,
     # DB_PASSWORD, OPENAI_API_KEY) e o valor nao tem tamanho minimo. Valor entre
-    # aspas some inteiro (frase-senha); sem aspas, some o primeiro token. O nome
-    # precisa terminar logo antes de ':' ou '=', o que deixa de fora max_tokens,
-    # tokenizer, senhas, Secretaria e `password`: em prosa.
+    # aspas some inteiro (frase-senha), inclusive com aspa escapada dentro; sem
+    # aspas, some o primeiro token, com qualquer asterisco nele. O nome pode
+    # fechar aspas (chave JSON) ou negrito (Markdown) e precisa terminar logo
+    # antes de ':' ou '=', o que deixa de fora max_tokens, tokenizer, senhas,
+    # Secretaria e `password`: em prosa.
     (re.compile(
         r"(?i)(?<![A-Za-z0-9])(?:[A-Za-z0-9]+[_-])*"
         r"(?:senha|password|passwd|pwd|secret|api[_-]?key|token|access[_-]?key|private[_-]?key)"
         r"(?:[_-](?:access[_-]?)?key|[_-]token|[_-]secret)?"
-        r"[ \t]*[:=][ \t]*\**[ \t]*"
-        r"(?:\"[^\"\n]+\"|'[^'\n]+'|[^\s'\"*]+)"
+        r"[\"'*]*[ \t]*[:=][ \t]*\**[ \t]*"
+        r"(?:\"(?:[^\"\\\n]|\\.)+\"|'(?:[^'\\\n]|\\.)+'|[^\s'\"]+)"
     ), "credencial"),
     (re.compile(r"\b[a-z]+://[^\s:@/]+:[^\s:@/]+@[^\s/]+"), "url_com_credencial"),
     (re.compile(r"\b\d{3}\.\d{3}\.\d{3}-\d{2}\b"), "cpf"),
