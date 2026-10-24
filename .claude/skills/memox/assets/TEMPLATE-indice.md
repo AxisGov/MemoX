@@ -118,7 +118,7 @@ Um exemplo preenchido, gerado a partir de artefatos reais, está em `exemplos/in
       "data_posterior": "{{AAAA-MM-DD}}",
       "evidencia": "{{a frase que descreve o vinculo}}",
       "origem_causa": "{{caminho do 01-CAUSA-RAIZ.md do posterior}}",
-      "origem_alteracao": "{{caminho do tecnico.md do anterior}}"
+      "origem_alteracao": "{{caminho do tecnico.md do anterior, ou do FECHAMENTO.md quando veio da sprintx}}"
     }
   ],
 

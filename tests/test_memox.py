@@ -54,6 +54,81 @@ class MemoxRegressoesTest(unittest.TestCase):
         self.assertNotIn("QUJD", redigido)
         self.assertNotIn("END PRIVATE KEY", redigido)
 
+    def test_redigir_credencial_curta_e_nome_prefixado(self):
+        casos = {
+            "password: abc123": "abc123",
+            "senha: 1234": "1234",
+            "AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG": "wJalrXUtnFEMI",
+            "OPENAI_API_KEY=abc": "abc",
+            "api_key=abcd1234efgh": "abcd1234efgh",
+            "export DB_PASSWORD=curta": "curta",
+            "client_secret: 'ab cd ef'": "ab cd ef",
+            'senha: "minha frase"': "minha frase",
+            "**Senha:** hunter2": "hunter2",
+        }
+        for texto, segredo in casos.items():
+            with self.subTest(texto=texto):
+                redigido, tipos = memox.redigir(texto)
+                self.assertIn("credencial", tipos)
+                self.assertNotIn(segredo, redigido)
+
+    def test_redigir_preserva_texto_legitimo(self):
+        legitimos = [
+            "max_tokens: 4096",
+            "tokenizer: bpe",
+            "token_count: 3",
+            "Secretaria: Fazenda",
+            "senhas: politica revisada",
+            "A senha expirou e o token foi renovado.",
+            "campo `password`: obrigatorio",
+            "Decisao: usar token JWT; senha com hash bcrypt",
+            "senha:\nproxima linha legitima",
+            'password: ""',
+        ]
+        for texto in legitimos:
+            with self.subTest(texto=texto):
+                self.assertEqual(memox.redigir(texto), (texto, []))
+
+    def test_regressao_aponta_fechamento_como_origem_da_alteracao(self):
+        trabalhos = {
+            "FX-1": {
+                "trabalho_id": "FX-1", "data": "2026-10-01",
+                "arquivos_alterados": ["src/pagamento.py"],
+                "fontes": ["docs/sprintx/features/pagamento/ORQUESTRADOR.md",
+                           "docs/sprintx/features/pagamento/FECHAMENTO.md"],
+            },
+            "OC-2": {
+                "trabalho_id": "OC-2", "data": "2026-10-10",
+                "arquivos_impactados": ["src/pagamento.py"],
+                "modo": "causa_raiz", "comprovada": True,
+                "fontes": ["docs/manutencao/OC-2/01-CAUSA-RAIZ.md"],
+            },
+        }
+        regressoes, _ = memox.detectar_regressoes(trabalhos)
+        self.assertEqual(len(regressoes), 1)
+        self.assertEqual(regressoes[0]["origem_alteracao"],
+                         "docs/sprintx/features/pagamento/FECHAMENTO.md")
+
+    def test_fonte_alterada_durante_coleta_dispara_reindexacao(self):
+        with TemporaryDirectory() as tmp:
+            raiz = Path(tmp)
+            fechamento = raiz / "docs" / "sprintx" / "features" / "x" / "FECHAMENTO.md"
+            escrever(fechamento, "---\ntrabalho_id: FX-9\nresumo: primeira versao\n---\n")
+            coletar_original = memox.coletar
+
+            def coletar_e_alterar(*args, **kwargs):
+                resultado = coletar_original(*args, **kwargs)
+                escrever(fechamento, "---\ntrabalho_id: FX-9\nresumo: segunda versao, mais longa\n---\n")
+                return resultado
+
+            memox.coletar = coletar_e_alterar
+            try:
+                indice = memox.construir_indice(str(raiz), memox.CONFIG_PADRAO)
+            finally:
+                memox.coletar = coletar_original
+            memox.gravar_indice(str(raiz), indice)
+            self.assertTrue(memox.precisa_reindexar(str(raiz), memox.CONFIG_PADRAO))
+
     def test_fechamento_e_qa_preservam_proveniencia_e_detalhes(self):
         with TemporaryDirectory() as tmp:
             raiz = Path(tmp)

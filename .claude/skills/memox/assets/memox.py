@@ -285,7 +285,18 @@ PADROES_SEGREDO = [
     (re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"), "token_github"),
     (re.compile(r"\bxox[baprs]-[A-Za-z0-9\-]{10,}\b"), "token_slack"),
     (re.compile(r"\beyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\b"), "jwt"),
-    (re.compile(r"(?i)\b(?:senha|password|passwd|secret|api[_-]?key|token)\b\s*[:=]\s*['\"]?[^\s'\"]{8,}"), "credencial"),
+    # Credencial nomeada: o nome pode vir prefixado (AWS_SECRET_ACCESS_KEY,
+    # DB_PASSWORD, OPENAI_API_KEY) e o valor nao tem tamanho minimo. Valor entre
+    # aspas some inteiro (frase-senha); sem aspas, some o primeiro token. O nome
+    # precisa terminar logo antes de ':' ou '=', o que deixa de fora max_tokens,
+    # tokenizer, senhas, Secretaria e `password`: em prosa.
+    (re.compile(
+        r"(?i)(?<![A-Za-z0-9])(?:[A-Za-z0-9]+[_-])*"
+        r"(?:senha|password|passwd|pwd|secret|api[_-]?key|token|access[_-]?key|private[_-]?key)"
+        r"(?:[_-](?:access[_-]?)?key|[_-]token|[_-]secret)?"
+        r"[ \t]*[:=][ \t]*\**[ \t]*"
+        r"(?:\"[^\"\n]+\"|'[^'\n]+'|[^\s'\"*]+)"
+    ), "credencial"),
     (re.compile(r"\b[a-z]+://[^\s:@/]+:[^\s:@/]+@[^\s/]+"), "url_com_credencial"),
     (re.compile(r"\b\d{3}\.\d{3}\.\d{3}-\d{2}\b"), "cpf"),
 ]
@@ -800,8 +811,10 @@ def detectar_regressoes(trabalhos):
                     "origem_causa": next(
                         (f for f in b.get("fontes", []) if f.endswith("01-CAUSA-RAIZ.md")), None
                     ),
+                    # Trabalho da sprintx registra o que alterou no FECHAMENTO.md.
                     "origem_alteracao": next(
-                        (f for f in a.get("fontes", []) if f.endswith("tecnico.md")), None
+                        (f for f in a.get("fontes", []) if f.endswith("tecnico.md")),
+                        next((f for f in a.get("fontes", []) if f.endswith("FECHAMENTO.md")), None),
                     ),
                 })
             else:
@@ -829,6 +842,9 @@ def detectar_regressoes(trabalhos):
 
 def construir_indice(raiz, cfg):
     inicio = time.time()
+    # A assinatura vem ANTES da leitura: se uma fonte mudar durante a coleta,
+    # a assinatura gravada fica diferente da atual e a proxima checagem reconstroi.
+    assinatura = assinatura_fontes(raiz, cfg)
     trabalhos, divida, zonas, linha_do_tempo, contaminados, avisos = coletar(raiz, cfg)
     regressoes, coincidencias = detectar_regressoes(trabalhos)
 
@@ -975,7 +991,7 @@ def construir_indice(raiz, cfg):
         "artefatos_contaminados": contaminados,
         "fora_do_indice": avisos,
         "config": cfg,
-        "assinatura_fontes": assinatura_fontes(raiz, cfg),
+        "assinatura_fontes": assinatura,
     }
     return indice
 
