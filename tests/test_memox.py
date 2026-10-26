@@ -320,6 +320,22 @@ VEREDITO: REPROVADO
             cfg["ignorar"] = cfg["ignorar"] + ["arquivo"]
             self.assertNotIn("OC-7", memox.construir_indice(str(raiz), cfg)["trabalhos"])
 
+    def test_ignorar_vale_para_a_raiz_da_propria_fonte(self):
+        # `ignorar: ["legado"]` desliga docs/legado, nao so o que ha abaixo dele.
+        with TemporaryDirectory() as tmp:
+            raiz = Path(tmp)
+            escrever(raiz / "docs" / "relatorios" / "OC-7-x" / "tecnico.md",
+                     "---\ntrabalho_id: OC-7\nfechado_em: 2026-01-01\n---\nRelatorio de um trabalho antigo.\n")
+            escrever(raiz / "docs" / "legado" / "DIVIDA.md",
+                     "---\ndividas:\n  - arquivo: src/velho.py\n    descricao: acoplado\n    risco: alto\n---\n")
+            self.assertIn("src/velho.py", memox.coletar(str(raiz), memox.CONFIG_PADRAO)[1])
+            cfg = json.loads(json.dumps(memox.CONFIG_PADRAO))
+            cfg["ignorar"] = cfg["ignorar"] + ["legado", "relatorios"]
+            trabalhos, divida = memox.coletar(str(raiz), cfg)[:2]
+            self.assertNotIn("src/velho.py", divida)
+            self.assertNotIn("OC-7", trabalhos)
+            self.assertEqual(memox.assinatura_fontes(str(raiz), cfg), [])
+
     def _promovida(self, sinais, sempre_incluir):
         # quatro recentes ocupam o limite de 3; a antiga so entra se promovida
         entradas = [{"trabalho_id": "T-%d" % n, "data": "2026-10-%02d" % (10 + n)} for n in range(4)]
@@ -396,7 +412,8 @@ VEREDITO: REPROVADO
             limite = time.time() + 5  # o hook reindexa em segundo plano
             while not indice.is_file() and time.time() < limite:
                 time.sleep(0.05)
-            self.assertTrue(indice.is_file())
+            time.sleep(0.2)  # a gravacao e atomica; o arquivo surge ja completo
+            self.assertIn("OC-9", json.loads(indice.read_text(encoding="utf-8"))["trabalhos"])
 
     def test_hook_injetar_respeita_fontes_da_config(self):
         with TemporaryDirectory() as tmp:

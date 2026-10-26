@@ -58,7 +58,7 @@ Onde procurar cada tipo de artefato, relativo à raiz. Ajuste apenas se o projet
 
 ### `ignorar`
 
-Diretórios não varridos, nem na coleta nem na assinatura que decide a reindexação. Mantenha `node_modules`, `dist`, `build` e `.git`: varrer essas árvores é o único jeito realista de a indexação ficar lenta.
+Diretórios não varridos, nem na coleta nem na assinatura que decide a reindexação. Vale também para a raiz de uma fonte: `"legado"` em `ignorar` desliga `docs/legado` inteiro. Mantenha `node_modules`, `dist`, `build` e `.git`: varrer essas árvores é o único jeito realista de a indexação ficar lenta.
 
 ## Ajustes por perfil de projeto
 

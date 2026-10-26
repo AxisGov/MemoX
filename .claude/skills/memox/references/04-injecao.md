@@ -14,7 +14,7 @@ Antes importa. Depois do plano escrito, a informação de que o arquivo já regr
 
 1. Índice construído. Sem índice, o hook fica em silêncio e **não indexa dentro do hook**: indexar é caro em relação ao orçamento de 200 ms.
 2. `python3` no `PATH`.
-3. Pelo menos uma das pastas de artefato existe. Nenhuma delas, o hook sai em silêncio, com código 0.
+3. O hook decide só pela existência de `.expx/memoria/indice.json` (DM-26): sem ele, sai em silêncio com código 0, sem subir o Python. Por isso vale também quando `fontes` aponta outra árvore no `config.json`; projeto sem artefato fica sem índice e, portanto, em silêncio.
 
 ## O ponto de injeção
 
@@ -99,7 +99,7 @@ O memox é uma conveniência. Um prompt nunca deve falhar porque a memória falh
 - [ ] Prompt sem gatilho: saída vazia.
 - [ ] Prompt com arquivo sem histórico: saída vazia.
 - [ ] Prompt com arquivo com histórico: bloco com proveniência.
-- [ ] Projeto sem artefato: saída vazia, código 0.
+- [ ] Projeto sem índice (inclusive sem artefato): saída vazia, código 0.
 - [ ] Índice ausente ou corrompido: saída vazia, código 0.
 - [ ] Abaixo de 200 ms sobre 200 trabalhos.
 

@@ -352,6 +352,18 @@ def _rel(raiz, caminho):
     return os.path.relpath(caminho, raiz).replace(os.sep, "/")
 
 
+def _base_da_fonte(raiz, relativo, ignorar):
+    """Caminho absoluto da fonte, ou None quando ela mesma esta ignorada.
+
+    `ignorar` lista diretorios nao varridos: vale tambem para a raiz da fonte
+    (`ignorar: ["legado"]` desliga `docs/legado`), nao so para o que ha abaixo.
+    """
+    partes = [p for p in re.split(r"[/\\]+", relativo or "") if p and p != "."]
+    if any(p in ignorar or p.startswith(".") for p in partes):
+        return None
+    return os.path.join(raiz, relativo)
+
+
 def _listar(diretorio, nome_alvo, profundidade=3, ignorar=None):
     """Procura arquivos com um nome dado ate `profundidade` niveis.
 
@@ -360,7 +372,7 @@ def _listar(diretorio, nome_alvo, profundidade=3, ignorar=None):
     """
     ignorar = set(CONFIG_PADRAO["ignorar"] if ignorar is None else ignorar)
     achados = []
-    if not os.path.isdir(diretorio):
+    if not diretorio or not os.path.isdir(diretorio):
         return achados
     base_nivel = diretorio.rstrip(os.sep).count(os.sep)
     for atual, dirs, arqs in os.walk(diretorio):
@@ -431,6 +443,8 @@ def coletar(raiz, cfg):
     """Le todos os artefatos e devolve (trabalhos, divida, contaminados, avisos)."""
     fontes = cfg["fontes"]
     ignorar = cfg.get("ignorar")
+    base = {chave: _base_da_fonte(raiz, fontes.get(chave), set(ignorar or []))
+            for chave in ("relatorios", "manutencao", "entregas", "legado", "features")}
     trabalhos = {}          # trabalho_id -> registro
     contaminados = {}       # caminho -> [tipos]
     avisos = []             # artefatos que nao entraram, e por que
@@ -486,7 +500,7 @@ def coletar(raiz, cfg):
         return reg
 
     # --- docs/relatorios/*/tecnico.md ---------------------------------------
-    dir_rel = os.path.join(raiz, fontes["relatorios"])
+    dir_rel = base["relatorios"]
     for caminho in _listar(dir_rel, "tecnico.md", ignorar=ignorar):
         rel = _rel(raiz, caminho)
         bruto = _texto(caminho)
@@ -514,9 +528,9 @@ def coletar(raiz, cfg):
         reg["resumo"] = reg["resumo"] or _uma_linha(corpo)
 
     # --- docs/relatorios/INDICE.md — a linha do tempo -----------------------
-    caminho_indice = os.path.join(dir_rel, "INDICE.md")
+    caminho_indice = os.path.join(dir_rel, "INDICE.md") if dir_rel else None
     linha_do_tempo = []
-    if os.path.isfile(caminho_indice):
+    if caminho_indice and os.path.isfile(caminho_indice):
         rel = _rel(raiz, caminho_indice)
         texto, tipos = redigir(_texto(caminho_indice))
         marcar(rel, tipos)
@@ -544,7 +558,7 @@ def coletar(raiz, cfg):
                     reg["modulos"] = sorted(set(reg["modulos"]) | {str(entrada["modulo"])})
 
     # --- docs/manutencao/*/01-CAUSA-RAIZ.md ---------------------------------
-    dir_man = os.path.join(raiz, fontes["manutencao"])
+    dir_man = base["manutencao"]
     for caminho in _listar(dir_man, "01-CAUSA-RAIZ.md", ignorar=ignorar):
         rel = _rel(raiz, caminho)
         texto, tipos = redigir(_texto(caminho))
@@ -575,8 +589,8 @@ def coletar(raiz, cfg):
                 })
 
     # --- 00-DECISOES.md (features e manutencao) -----------------------------
-    for base in {os.path.join(raiz, fontes["features"]), dir_man}:
-        for caminho in _listar(base, "00-DECISOES.md", ignorar=ignorar):
+    for base_fonte in {b for b in (base["features"], dir_man) if b}:
+        for caminho in _listar(base_fonte, "00-DECISOES.md", ignorar=ignorar):
             rel = _rel(raiz, caminho)
             texto, tipos = redigir(_texto(caminho))
             marcar(rel, tipos)
@@ -600,8 +614,8 @@ def coletar(raiz, cfg):
                     })
 
     # --- ORQUESTRADOR.md — titulo, tipo e datas do trabalho -----------------
-    for base in {os.path.join(raiz, fontes["features"]), dir_man}:
-        for caminho in _listar(base, "ORQUESTRADOR.md", ignorar=ignorar):
+    for base_fonte in {b for b in (base["features"], dir_man) if b}:
+        for caminho in _listar(base_fonte, "ORQUESTRADOR.md", ignorar=ignorar):
             rel = _rel(raiz, caminho)
             texto, tipos = redigir(_texto(caminho))
             marcar(rel, tipos)
@@ -625,8 +639,8 @@ def coletar(raiz, cfg):
     # arquivo" — a propria sprintx promete o contrario no seu 00-schema.md.
     #
     # Profundidade 4: o layout novo e docs/sprintx/features/<slug>/FECHAMENTO.md.
-    for base in {os.path.join(raiz, fontes["features"]), dir_man}:
-        for caminho in _listar(base, "FECHAMENTO.md", profundidade=4, ignorar=ignorar):
+    for base_fonte in {b for b in (base["features"], dir_man) if b}:
+        for caminho in _listar(base_fonte, "FECHAMENTO.md", profundidade=4, ignorar=ignorar):
             rel = _rel(raiz, caminho)
             texto, tipos = redigir(_texto(caminho))
             marcar(rel, tipos)
@@ -663,8 +677,8 @@ def coletar(raiz, cfg):
             )
 
     # --- base/00-LACUNAS.md -------------------------------------------------
-    for base in {os.path.join(raiz, fontes["features"]), dir_man}:
-        for caminho in _listar(base, "00-LACUNAS.md", profundidade=4, ignorar=ignorar):
+    for base_fonte in {b for b in (base["features"], dir_man) if b}:
+        for caminho in _listar(base_fonte, "00-LACUNAS.md", profundidade=4, ignorar=ignorar):
             rel = _rel(raiz, caminho)
             texto, tipos = redigir(_texto(caminho))
             marcar(rel, tipos)
@@ -712,7 +726,7 @@ def coletar(raiz, cfg):
         }
 
     # --- docs/entregas/*/ENTREGA.md ----------------------------------------
-    dir_ent = os.path.join(raiz, fontes["entregas"])
+    dir_ent = base["entregas"]
     for caminho in _listar(dir_ent, "ENTREGA.md", ignorar=ignorar):
         rel = _rel(raiz, caminho)
         texto, tipos = redigir(_texto(caminho))
@@ -738,8 +752,8 @@ def coletar(raiz, cfg):
 
     # --- docs/legado/DIVIDA.md ---------------------------------------------
     divida = {}
-    caminho_div = os.path.join(raiz, fontes["legado"], "DIVIDA.md")
-    if os.path.isfile(caminho_div):
+    caminho_div = os.path.join(base["legado"], "DIVIDA.md") if base["legado"] else None
+    if caminho_div and os.path.isfile(caminho_div):
         rel = _rel(raiz, caminho_div)
         texto, tipos = redigir(_texto(caminho_div))
         marcar(rel, tipos)
@@ -765,8 +779,8 @@ def coletar(raiz, cfg):
 
     # --- docs/legado/PERFIL.md — zonas de risco ----------------------------
     zonas = {}
-    caminho_perfil = os.path.join(raiz, fontes["legado"], "PERFIL.md")
-    if os.path.isfile(caminho_perfil):
+    caminho_perfil = os.path.join(base["legado"], "PERFIL.md") if base["legado"] else None
+    if caminho_perfil and os.path.isfile(caminho_perfil):
         rel = _rel(raiz, caminho_perfil)
         texto, tipos = redigir(_texto(caminho_perfil))
         marcar(rel, tipos)
@@ -1088,8 +1102,8 @@ def assinatura_fontes(raiz, cfg):
         relativo = fontes.get(chave)
         if not isinstance(relativo, str):
             continue
-        base = os.path.join(raiz, relativo)
-        if not os.path.isdir(base):
+        base = _base_da_fonte(raiz, relativo, ignorar)
+        if not base or not os.path.isdir(base):
             continue
         base_nivel = base.rstrip(os.sep).count(os.sep)
         for atual, dirs, arqs in os.walk(base):

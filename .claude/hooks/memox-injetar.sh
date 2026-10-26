@@ -10,7 +10,7 @@
 #   - silencioso quando nao ha nada relevante (regra 5);
 #   - sai com 0 SEMPRE, inclusive em erro: falha aberta, nunca trava o prompt;
 #   - abaixo de 200 ms; sem rede, sem modelo;
-#   - inativo, sem erro, quando nao ha artefato nenhum.
+#   - inativo, sem erro, quando nao ha indice construido (DM-26).
 
 set -u
 

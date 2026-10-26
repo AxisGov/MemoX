@@ -70,9 +70,9 @@ Versionar o índice traria conflito de merge em arquivo gerado, revisão de diff
 |---|---|---|
 | `max_entradas_recentes` | `3` | entradas recentes por alvo |
 | `teto_entradas` | `8` | acima disso, informa contagem em vez de listar |
-| `sempre_incluir` | `["regressao","reprovacao_qa","zona_de_risco"]` | sinais que furam o limite de recência |
+| `sempre_incluir` | `["regressao","reprovacao_qa","zona_de_risco"]` | sinais que furam o limite de recência; só `regressao` e `reprovacao_qa` promovem entrada (zona de risco é sinal do arquivo) |
 | `fontes` | ver template | onde procurar cada tipo de artefato |
-| `ignorar` | `[".git","node_modules",...]` | diretórios não varridos |
+| `ignorar` | `[".git","node_modules",...]` | diretórios não varridos, inclusive a própria raiz de uma fonte (`"legado"` desliga `docs/legado`) |
 
 Config inválida não derruba a consulta: o motor cai nos padrões e segue (falha aberta).
 
