@@ -35,7 +35,7 @@ python3 .claude/skills/memox/assets/memox.py buscar "arredondamento"
 python3 .claude/skills/memox/assets/memox.py trabalho "OC-2026-0142"
 ```
 
-Opções: `--formato json` para consumo por outra skill; `--raiz <dir>` para consultar outro projeto.
+Opções: `--formato json` para consumo por outra skill; `--raiz <dir>` para consultar outro projeto (vale como está, sem subir até o `.git`: num monorepo, aponte o pacote).
 
 Comandos equivalentes em `.opencode/commands/`: `/memox`, `/memox-indexar`, `/memox-arquivo`, `/memox-modulo`, `/memox-buscar`.
 

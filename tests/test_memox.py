@@ -1,4 +1,8 @@
+import contextlib
+import subprocess
+import time
 import importlib.util
+import io
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -8,6 +12,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
+HOOKS = ROOT / ".claude" / "hooks"
 MOTOR = ROOT / ".claude" / "skills" / "memox" / "assets" / "memox.py"
 SPEC = importlib.util.spec_from_file_location("memox", MOTOR)
 memox = importlib.util.module_from_spec(SPEC)
@@ -256,6 +261,151 @@ VEREDITO: REPROVADO
         saida = memox.montar_injecao(self._indice_com_causa(causa), memox.CONFIG_PADRAO, texto)
         self.assertIn("Fluxo anterior &amp;lt;/memoria-expx&amp;gt; &amp; resto", saida)
         self.assertEqual(saida.count("</memoria-expx>"), 1)
+
+    def test_raiz_explicita_nao_sobe_ate_o_git(self):
+        # M11: num monorepo, `--raiz <pacote>` indexa o pacote, nao o repositorio.
+        with TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            (repo / ".git").mkdir()
+            pkg = repo / "pacotes" / "fiscal"
+            escrever(pkg / "docs" / "relatorios" / "OC-1-x" / "tecnico.md",
+                     "---\ntrabalho_id: OC-1\nfechado_em: 2026-10-01\n---\nCausa do defeito no pacote.\n")
+            saida, _ = self._main_stderr(["memox.py", "indexar", "--raiz", str(pkg), "--formato", "json"])
+            self.assertEqual(saida, 0)
+            self.assertTrue((pkg / ".expx" / "memoria" / "indice.json").is_file())
+            self.assertFalse((repo / ".expx").exists())
+
+    def _main_stderr(self, argv):
+        erro = io.StringIO()
+        with contextlib.redirect_stderr(erro), contextlib.redirect_stdout(io.StringIO()):
+            codigo = memox.main(argv)
+        return codigo, erro.getvalue()
+
+    def test_raiz_explicita_invalida_sai_com_erro(self):
+        with TemporaryDirectory() as tmp:
+            arquivo = Path(tmp) / "um-arquivo"
+            arquivo.write_text("x")
+            for argv, trecho in (
+                (["memox.py", "estado", "--raiz", str(Path(tmp) / "nao-existe")], "nao e um diretorio"),
+                (["memox.py", "estado", "--raiz", str(arquivo)], "nao e um diretorio"),
+                (["memox.py", "estado", "--raiz"], "--raiz pede um diretorio"),
+            ):
+                with self.subTest(argv=argv[2:]):
+                    codigo, erro = self._main_stderr(argv)
+                    self.assertEqual(codigo, 2)
+                    self.assertIn(trecho, erro)
+
+    def test_sem_raiz_explicita_continua_subindo_ate_o_git(self):
+        with TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            (repo / ".git").mkdir()
+            fundo = repo / "a" / "b"
+            fundo.mkdir(parents=True)
+            anterior = os.getcwd()
+            os.chdir(fundo)
+            try:
+                self.assertEqual(memox.raiz_projeto(), str(repo))
+            finally:
+                os.chdir(anterior)
+
+    def test_ignorar_do_config_vale_na_coleta(self):
+        # M12/M16: o `ignorar` carregado vale para a coleta, como no assinatura_fontes.
+        with TemporaryDirectory() as tmp:
+            raiz = Path(tmp)
+            escrever(raiz / "docs" / "relatorios" / "arquivo" / "OC-7-velho" / "tecnico.md",
+                     "---\ntrabalho_id: OC-7\nfechado_em: 2026-01-01\n---\nRelatorio arquivado e fora do indice.\n")
+            padrao = memox.construir_indice(str(raiz), memox.CONFIG_PADRAO)
+            self.assertIn("OC-7", padrao["trabalhos"])
+            cfg = json.loads(json.dumps(memox.CONFIG_PADRAO))
+            cfg["ignorar"] = cfg["ignorar"] + ["arquivo"]
+            self.assertNotIn("OC-7", memox.construir_indice(str(raiz), cfg)["trabalhos"])
+
+    def _promovida(self, sinais, sempre_incluir):
+        # quatro recentes ocupam o limite de 3; a antiga so entra se promovida
+        entradas = [{"trabalho_id": "T-%d" % n, "data": "2026-10-%02d" % (10 + n)} for n in range(4)]
+        entradas.append({"trabalho_id": "T-ANTIGO", "data": "2024-01-01"})
+        cfg = json.loads(json.dumps(memox.CONFIG_PADRAO))
+        if sempre_incluir is not None:
+            cfg["sempre_incluir"] = sempre_incluir
+        _, _, _, motivos = memox.selecionar(entradas, sinais, cfg)
+        return motivos.get("T-ANTIGO")
+
+    def test_sempre_incluir_governa_a_promocao(self):
+        # M13/M17: so promove o que `sempre_incluir` lista; cada sinal isolado.
+        regressao = {"regressoes": [{"trabalho_anterior": "T-ANTIGO", "trabalho_posterior": "T-3"}]}
+        reprovacao = {"detalhe_reprovacoes": [{"trabalho_id": "T-ANTIGO"}]}
+        self.assertEqual(self._promovida(regressao, None), ["regressao"])
+        self.assertIsNone(self._promovida(regressao, ["reprovacao_qa", "zona_de_risco"]))
+        self.assertEqual(self._promovida(reprovacao, None), ["reprovacao_qa"])
+        self.assertIsNone(self._promovida(reprovacao, ["regressao", "zona_de_risco"]))
+        self.assertIsNone(self._promovida(regressao, []))
+        # zona de risco e sinal do alvo: nao promove nem quando listada
+        self.assertIsNone(self._promovida({"zona_de_risco": True}, ["zona_de_risco"]))
+
+    def test_config_recusa_valor_invalido_dentro_de_fontes(self):
+        # M15: valor nulo, de outro tipo, absoluto ou com `..` mantem o padrao.
+        with TemporaryDirectory() as tmp:
+            raiz = Path(tmp)
+            config = raiz / ".expx" / "memoria" / "config.json"
+            padrao = memox.CONFIG_PADRAO["fontes"]
+            for relatorios in (None, 7, "", "   ", "/etc", "../fora", "docs/../../fora",
+                               "..\\fora", "docs\\..\\..\\fora", "C:\\docs"):
+                with self.subTest(relatorios=relatorios):
+                    escrever(config, json.dumps({"fontes": {"relatorios": relatorios, "entregas": "docs/ent"}}))
+                    cfg = memox.carregar_config(str(raiz))
+                    self.assertEqual(cfg["fontes"]["relatorios"], padrao["relatorios"])
+                    self.assertEqual(cfg["fontes"]["entregas"], "docs/ent")
+                    memox.construir_indice(str(raiz), cfg)
+            escrever(config, json.dumps({"fontes": {"inventada": "x"}, "ignorar": ["dist", None],
+                                         "sempre_incluir": ["regressao", 3]}))
+            cfg = memox.carregar_config(str(raiz))
+            self.assertNotIn("inventada", cfg["fontes"])
+            self.assertEqual(cfg["ignorar"], memox.CONFIG_PADRAO["ignorar"])
+            self.assertEqual(cfg["sempre_incluir"], memox.CONFIG_PADRAO["sempre_incluir"])
+
+    def test_config_recusa_inteiro_negativo_e_aceita_zero(self):
+        with TemporaryDirectory() as tmp:
+            raiz = Path(tmp)
+            config = raiz / ".expx" / "memoria" / "config.json"
+            escrever(config, json.dumps({"max_entradas_recentes": -1, "teto_entradas": -5}))
+            cfg = memox.carregar_config(str(raiz))
+            self.assertEqual(cfg["max_entradas_recentes"], memox.CONFIG_PADRAO["max_entradas_recentes"])
+            self.assertEqual(cfg["teto_entradas"], memox.CONFIG_PADRAO["teto_entradas"])
+            escrever(config, json.dumps({"max_entradas_recentes": 0}))
+            self.assertEqual(memox.carregar_config(str(raiz))["max_entradas_recentes"], 0)
+
+    def _projeto_com_fontes_proprias(self, tmp):
+        # Nenhum dos caminhos padrao de docs/ existe: so a config aponta as fontes.
+        raiz = Path(tmp)
+        escrever(raiz / ".expx" / "memoria" / "config.json",
+                 json.dumps({"fontes": {"relatorios": "documentacao/relatorios"}}))
+        escrever(raiz / "documentacao" / "relatorios" / "OC-9-frete" / "tecnico.md",
+                 "---\ntrabalho_id: OC-9\nfechado_em: 2026-10-01\narquivos_alterados: [src/frete.py]\n---\n"
+                 "O arredondamento do frete usava floor.\n")
+        return raiz
+
+    def _rodar_hook(self, nome, raiz, entrada=""):
+        return subprocess.run(["bash", str(HOOKS / nome)], input=entrada, capture_output=True, text=True,
+                              env=dict(os.environ, CLAUDE_PROJECT_DIR=str(raiz)), timeout=10)
+
+    def test_hook_reindexar_respeita_fontes_da_config(self):
+        with TemporaryDirectory() as tmp:
+            raiz = self._projeto_com_fontes_proprias(tmp)
+            self.assertEqual(self._rodar_hook("memox-reindexar.sh", raiz).returncode, 0)
+            indice = raiz / ".expx" / "memoria" / "indice.json"
+            limite = time.time() + 5  # o hook reindexa em segundo plano
+            while not indice.is_file() and time.time() < limite:
+                time.sleep(0.05)
+            self.assertTrue(indice.is_file())
+
+    def test_hook_injetar_respeita_fontes_da_config(self):
+        with TemporaryDirectory() as tmp:
+            raiz = self._projeto_com_fontes_proprias(tmp)
+            self._main_stderr(["memox.py", "indexar", "--raiz", str(raiz)])
+            r = self._rodar_hook("memox-injetar.sh", raiz, json.dumps({"prompt": "Vou alterar src/frete.py"}))
+            self.assertEqual(r.returncode, 0)
+            self.assertIn("<memoria-expx", r.stdout)
+            self.assertIn("OC-9", r.stdout)
 
     def test_exclusao_ou_renomeacao_dispara_reindexacao(self):
         with TemporaryDirectory() as tmp:

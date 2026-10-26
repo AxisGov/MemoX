@@ -73,7 +73,21 @@ def dir_memoria(raiz):
     return os.path.join(raiz, ".expx", "memoria")
 
 
+def _caminho_relativo_valido(valor):
+    """String nao vazia, relativa e sem `..` — com `/` ou `\\` como separador."""
+    if not isinstance(valor, str) or not valor.strip():
+        return False
+    if os.path.isabs(valor) or valor.startswith(("/", "\\")) or re.match(r"^[A-Za-z]:", valor):
+        return False
+    return ".." not in re.split(r"[/\\]+", valor)
+
+
 def carregar_config(raiz):
+    """Config do projeto sobre os padroes, validada chave a chave.
+
+    O que nao passa na validacao fica com o padrao, sem derrubar nada (falha
+    aberta): um valor ruim dentro de `fontes` nao pode chegar ao os.path.join.
+    """
     cfg = json.loads(json.dumps(CONFIG_PADRAO))
     caminho = os.path.join(dir_memoria(raiz), "config.json")
     if os.path.isfile(caminho):
@@ -86,12 +100,16 @@ def carregar_config(raiz):
                 padrao = cfg.get(chave)
                 if isinstance(padrao, dict):
                     if isinstance(valor, dict):
-                        cfg[chave].update(valor)
+                        # so as chaves conhecidas, e so caminho relativo valido
+                        for sub, caminho_fonte in valor.items():
+                            if sub in padrao and _caminho_relativo_valido(caminho_fonte):
+                                cfg[chave][sub] = caminho_fonte
                 elif isinstance(padrao, list):
-                    if isinstance(valor, list):
+                    if isinstance(valor, list) and all(isinstance(v, str) and v.strip() for v in valor):
                         cfg[chave] = valor
                 elif isinstance(padrao, int) and not isinstance(padrao, bool):
-                    if isinstance(valor, int) and not isinstance(valor, bool):
+                    # negativo faria o corte da selecao contar de tras para frente
+                    if isinstance(valor, int) and not isinstance(valor, bool) and valor >= 0:
                         cfg[chave] = valor
                 elif isinstance(valor, type(padrao)):
                     cfg[chave] = valor
@@ -334,14 +352,19 @@ def _rel(raiz, caminho):
     return os.path.relpath(caminho, raiz).replace(os.sep, "/")
 
 
-def _listar(diretorio, nome_alvo, profundidade=3):
-    """Procura arquivos com um nome dado ate `profundidade` niveis."""
+def _listar(diretorio, nome_alvo, profundidade=3, ignorar=None):
+    """Procura arquivos com um nome dado ate `profundidade` niveis.
+
+    `ignorar` e o da config carregada, o mesmo do assinatura_fontes; sem ele,
+    o padrao.
+    """
+    ignorar = set(CONFIG_PADRAO["ignorar"] if ignorar is None else ignorar)
     achados = []
     if not os.path.isdir(diretorio):
         return achados
     base_nivel = diretorio.rstrip(os.sep).count(os.sep)
     for atual, dirs, arqs in os.walk(diretorio):
-        dirs[:] = [d for d in dirs if not d.startswith(".") and d not in CONFIG_PADRAO["ignorar"]]
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d not in ignorar]
         if atual.count(os.sep) - base_nivel > profundidade:
             dirs[:] = []
             continue
@@ -407,6 +430,7 @@ def _secao(texto, titulos):
 def coletar(raiz, cfg):
     """Le todos os artefatos e devolve (trabalhos, divida, contaminados, avisos)."""
     fontes = cfg["fontes"]
+    ignorar = cfg.get("ignorar")
     trabalhos = {}          # trabalho_id -> registro
     contaminados = {}       # caminho -> [tipos]
     avisos = []             # artefatos que nao entraram, e por que
@@ -463,7 +487,7 @@ def coletar(raiz, cfg):
 
     # --- docs/relatorios/*/tecnico.md ---------------------------------------
     dir_rel = os.path.join(raiz, fontes["relatorios"])
-    for caminho in _listar(dir_rel, "tecnico.md"):
+    for caminho in _listar(dir_rel, "tecnico.md", ignorar=ignorar):
         rel = _rel(raiz, caminho)
         bruto = _texto(caminho)
         texto, tipos = redigir(bruto)
@@ -521,7 +545,7 @@ def coletar(raiz, cfg):
 
     # --- docs/manutencao/*/01-CAUSA-RAIZ.md ---------------------------------
     dir_man = os.path.join(raiz, fontes["manutencao"])
-    for caminho in _listar(dir_man, "01-CAUSA-RAIZ.md"):
+    for caminho in _listar(dir_man, "01-CAUSA-RAIZ.md", ignorar=ignorar):
         rel = _rel(raiz, caminho)
         texto, tipos = redigir(_texto(caminho))
         marcar(rel, tipos)
@@ -552,7 +576,7 @@ def coletar(raiz, cfg):
 
     # --- 00-DECISOES.md (features e manutencao) -----------------------------
     for base in {os.path.join(raiz, fontes["features"]), dir_man}:
-        for caminho in _listar(base, "00-DECISOES.md"):
+        for caminho in _listar(base, "00-DECISOES.md", ignorar=ignorar):
             rel = _rel(raiz, caminho)
             texto, tipos = redigir(_texto(caminho))
             marcar(rel, tipos)
@@ -577,7 +601,7 @@ def coletar(raiz, cfg):
 
     # --- ORQUESTRADOR.md — titulo, tipo e datas do trabalho -----------------
     for base in {os.path.join(raiz, fontes["features"]), dir_man}:
-        for caminho in _listar(base, "ORQUESTRADOR.md"):
+        for caminho in _listar(base, "ORQUESTRADOR.md", ignorar=ignorar):
             rel = _rel(raiz, caminho)
             texto, tipos = redigir(_texto(caminho))
             marcar(rel, tipos)
@@ -602,7 +626,7 @@ def coletar(raiz, cfg):
     #
     # Profundidade 4: o layout novo e docs/sprintx/features/<slug>/FECHAMENTO.md.
     for base in {os.path.join(raiz, fontes["features"]), dir_man}:
-        for caminho in _listar(base, "FECHAMENTO.md", profundidade=4):
+        for caminho in _listar(base, "FECHAMENTO.md", profundidade=4, ignorar=ignorar):
             rel = _rel(raiz, caminho)
             texto, tipos = redigir(_texto(caminho))
             marcar(rel, tipos)
@@ -640,7 +664,7 @@ def coletar(raiz, cfg):
 
     # --- base/00-LACUNAS.md -------------------------------------------------
     for base in {os.path.join(raiz, fontes["features"]), dir_man}:
-        for caminho in _listar(base, "00-LACUNAS.md", profundidade=4):
+        for caminho in _listar(base, "00-LACUNAS.md", profundidade=4, ignorar=ignorar):
             rel = _rel(raiz, caminho)
             texto, tipos = redigir(_texto(caminho))
             marcar(rel, tipos)
@@ -658,7 +682,7 @@ def coletar(raiz, cfg):
                     reg["lacunas"].append({"lacuna": limpa[:200], "origem": rel})
 
     # --- docs/manutencao/*/QA.md -------------------------------------------
-    for caminho in _listar(dir_man, "QA.md"):
+    for caminho in _listar(dir_man, "QA.md", ignorar=ignorar):
         rel = _rel(raiz, caminho)
         texto, tipos = redigir(_texto(caminho))
         marcar(rel, tipos)
@@ -689,7 +713,7 @@ def coletar(raiz, cfg):
 
     # --- docs/entregas/*/ENTREGA.md ----------------------------------------
     dir_ent = os.path.join(raiz, fontes["entregas"])
-    for caminho in _listar(dir_ent, "ENTREGA.md"):
+    for caminho in _listar(dir_ent, "ENTREGA.md", ignorar=ignorar):
         rel = _rel(raiz, caminho)
         texto, tipos = redigir(_texto(caminho))
         marcar(rel, tipos)
@@ -1119,8 +1143,12 @@ def carregar_indice(raiz):
 # consulta — regra 6, controle de ruido
 # ---------------------------------------------------------------------------
 
-def _relevante(entrada, sinais):
-    """Entrada que fura o limite de recencia: regressao, QA reprovado ou zona de risco."""
+def _relevante(entrada, sinais, incluir=None):
+    """Entrada que fura o limite de recencia: regressao, QA reprovado ou zona de risco.
+
+    So os motivos listados em `sempre_incluir` (`incluir`) contam.
+    """
+    incluir = set(CONFIG_PADRAO["sempre_incluir"] if incluir is None else incluir)
     motivos = []
     regs = (sinais or {}).get("regressoes")
     for r in (regs if isinstance(regs, list) else []):
@@ -1133,7 +1161,7 @@ def _relevante(entrada, sinais):
             break
     if (sinais or {}).get("zona_de_risco"):
         motivos.append("zona_de_risco")
-    return motivos
+    return [m for m in motivos if m in incluir]
 
 
 def selecionar(entradas, sinais, cfg):
@@ -1149,7 +1177,7 @@ def selecionar(entradas, sinais, cfg):
     for e in ordenadas:
         if e["trabalho_id"] in motivos:
             continue
-        m = _relevante(e, sinais)
+        m = _relevante(e, sinais, cfg.get("sempre_incluir"))
         # zona de risco sozinha nao promove entrada antiga: e sinal do arquivo, nao da entrada
         m = [x for x in m if x != "zona_de_risco"]
         if m:
@@ -1513,14 +1541,25 @@ def main(argv):
     resto = []
     i = 0
     while i < len(args):
-        if args[i] == "--raiz" and i + 1 < len(args):
+        if args[i] == "--raiz":
+            if i + 1 >= len(args):
+                sys.stderr.write("memox — --raiz pede um diretorio.\n")
+                return 2
             raiz, i = args[i + 1], i + 2
         elif args[i] == "--formato" and i + 1 < len(args):
             formato, i = args[i + 1], i + 2
         else:
             resto.append(args[i])
             i += 1
-    raiz = raiz_projeto(raiz)
+    if raiz is None:
+        raiz = raiz_projeto()
+    else:
+        # `--raiz` explicito vale como esta: num monorepo, o pacote e a raiz.
+        # Subir ate o `.git` indexaria o repositorio inteiro.
+        raiz = os.path.abspath(raiz)
+        if not os.path.isdir(raiz):
+            sys.stderr.write("memox — --raiz nao e um diretorio: %s\n" % raiz)
+            return 2
     cfg = carregar_config(raiz)
     alvo = " ".join(resto).strip()
 
