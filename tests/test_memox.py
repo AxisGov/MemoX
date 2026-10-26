@@ -369,6 +369,31 @@ VEREDITO: REPROVADO
             self.assertNotIn("EXTERNO-1", indice["trabalhos"])
             self.assertEqual(memox.assinatura_fontes(str(raiz), memox.CONFIG_PADRAO), [])
 
+    def test_artefato_que_e_link_para_fora_nao_e_lido(self):
+        # A fonte e do projeto, mas o artefato dentro dela e link para fora: nao e lido nem assinado.
+        with TemporaryDirectory() as tmp, TemporaryDirectory() as fora:
+            raiz = Path(tmp)
+            escrever(Path(fora) / "tecnico.md", "---\ntrabalho_id: EXTERNO-2\nfechado_em: 2026-01-01\n---\nRelatorio externo.\n")
+            escrever(Path(fora) / "DIVIDA.md", "---\ndividas:\n  - arquivo: src/externo.py\n    descricao: x\n---\n")
+            (raiz / "docs" / "relatorios" / "OC-9-x").mkdir(parents=True)
+            (raiz / "docs" / "legado").mkdir(parents=True)
+            os.symlink(Path(fora) / "tecnico.md", raiz / "docs" / "relatorios" / "OC-9-x" / "tecnico.md")
+            os.symlink(Path(fora) / "DIVIDA.md", raiz / "docs" / "legado" / "DIVIDA.md")
+            trabalhos, divida = memox.coletar(str(raiz), memox.CONFIG_PADRAO)[:2]
+            self.assertNotIn("EXTERNO-2", trabalhos)
+            self.assertNotIn("src/externo.py", divida)
+            self.assertEqual(memox.assinatura_fontes(str(raiz), memox.CONFIG_PADRAO), [])
+
+    def test_estado_mostra_fonte_com_barra_invertida_como_existente(self):
+        with TemporaryDirectory() as tmp:
+            raiz = Path(tmp)
+            (raiz / "documentacao" / "relatorios").mkdir(parents=True)
+            cfg = json.loads(json.dumps(memox.CONFIG_PADRAO))
+            cfg["fontes"]["relatorios"] = "documentacao\\relatorios"
+            indice = memox.construir_indice(str(raiz), cfg)
+            linha = next(l for l in memox.formatar_estado(indice, str(raiz)).splitlines() if "relatorios" in l)
+            self.assertIn("(existe)", linha)
+
     def test_artefato_da_manutencao_nao_e_lido_duas_vezes(self):
         # `features` (docs) contem `manutencao` (docs/manutencao): a decisao entra uma vez so.
         with TemporaryDirectory() as tmp:

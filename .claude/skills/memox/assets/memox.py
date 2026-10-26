@@ -352,6 +352,18 @@ def _rel(raiz, caminho):
     return os.path.relpath(caminho, raiz).replace(os.sep, "/")
 
 
+def _dentro(raiz, caminho):
+    """O caminho REAL fica dentro do projeto? Link simbolico para fora nao fica.
+
+    Em Windows, unidades distintas fazem o commonpath falhar: isso e "fora".
+    """
+    real_raiz = os.path.realpath(raiz)
+    try:
+        return os.path.commonpath([real_raiz, os.path.realpath(caminho)]) == real_raiz
+    except ValueError:
+        return False
+
+
 def _base_da_fonte(raiz, relativo, ignorar):
     """Caminho absoluto da fonte, ou None quando ela nao deve ser lida.
 
@@ -368,18 +380,15 @@ def _base_da_fonte(raiz, relativo, ignorar):
     if not partes or any(p in ignorar for p in partes):
         return None
     base = os.path.join(raiz, *partes)
-    real_raiz = os.path.realpath(raiz)
-    real_base = os.path.realpath(base)
-    if os.path.commonpath([real_raiz, real_base]) != real_raiz:
-        return None
-    return base
+    return base if _dentro(raiz, base) else None
 
 
-def _listar(diretorio, nome_alvo, profundidade=3, ignorar=None):
+def _listar(diretorio, nome_alvo, profundidade=3, ignorar=None, limite=None):
     """Procura arquivos com um nome dado ate `profundidade` niveis.
 
     `ignorar` e o da config carregada, o mesmo do assinatura_fontes; sem ele,
-    o padrao.
+    o padrao. Com `limite` (a raiz do projeto), arquivo que e link para fora
+    dela nao e devolvido: a fonte ser do projeto nao basta.
     """
     ignorar = set(CONFIG_PADRAO["ignorar"] if ignorar is None else ignorar)
     achados = []
@@ -393,7 +402,9 @@ def _listar(diretorio, nome_alvo, profundidade=3, ignorar=None):
             continue
         for arq in arqs:
             if arq == nome_alvo:
-                achados.append(os.path.join(atual, arq))
+                caminho = os.path.join(atual, arq)
+                if limite is None or _dentro(limite, caminho):
+                    achados.append(caminho)
     return sorted(achados)
 
 
@@ -523,7 +534,7 @@ def coletar(raiz, cfg):
 
     # --- docs/relatorios/*/tecnico.md ---------------------------------------
     dir_rel = base["relatorios"]
-    for caminho in _listar(dir_rel, "tecnico.md", ignorar=ignorar):
+    for caminho in _listar(dir_rel, "tecnico.md", ignorar=ignorar, limite=raiz):
         rel = _rel(raiz, caminho)
         bruto = _texto(caminho)
         texto, tipos = redigir(bruto)
@@ -552,7 +563,7 @@ def coletar(raiz, cfg):
     # --- docs/relatorios/INDICE.md — a linha do tempo -----------------------
     caminho_indice = os.path.join(dir_rel, "INDICE.md") if dir_rel else None
     linha_do_tempo = []
-    if caminho_indice and os.path.isfile(caminho_indice):
+    if caminho_indice and os.path.isfile(caminho_indice) and _dentro(raiz, caminho_indice):
         rel = _rel(raiz, caminho_indice)
         texto, tipos = redigir(_texto(caminho_indice))
         marcar(rel, tipos)
@@ -581,7 +592,7 @@ def coletar(raiz, cfg):
 
     # --- docs/manutencao/*/01-CAUSA-RAIZ.md ---------------------------------
     dir_man = base["manutencao"]
-    for caminho in _listar(dir_man, "01-CAUSA-RAIZ.md", ignorar=ignorar):
+    for caminho in _listar(dir_man, "01-CAUSA-RAIZ.md", ignorar=ignorar, limite=raiz):
         rel = _rel(raiz, caminho)
         texto, tipos = redigir(_texto(caminho))
         marcar(rel, tipos)
@@ -612,7 +623,7 @@ def coletar(raiz, cfg):
 
     # --- 00-DECISOES.md (features e manutencao) -----------------------------
     for base_fonte in {b for b in (base["features"], dir_man) if b}:
-        for caminho in uma_vez(_listar(base_fonte, "00-DECISOES.md", ignorar=ignorar)):
+        for caminho in uma_vez(_listar(base_fonte, "00-DECISOES.md", ignorar=ignorar, limite=raiz)):
             rel = _rel(raiz, caminho)
             texto, tipos = redigir(_texto(caminho))
             marcar(rel, tipos)
@@ -637,7 +648,7 @@ def coletar(raiz, cfg):
 
     # --- ORQUESTRADOR.md — titulo, tipo e datas do trabalho -----------------
     for base_fonte in {b for b in (base["features"], dir_man) if b}:
-        for caminho in uma_vez(_listar(base_fonte, "ORQUESTRADOR.md", ignorar=ignorar)):
+        for caminho in uma_vez(_listar(base_fonte, "ORQUESTRADOR.md", ignorar=ignorar, limite=raiz)):
             rel = _rel(raiz, caminho)
             texto, tipos = redigir(_texto(caminho))
             marcar(rel, tipos)
@@ -662,7 +673,7 @@ def coletar(raiz, cfg):
     #
     # Profundidade 4: o layout novo e docs/sprintx/features/<slug>/FECHAMENTO.md.
     for base_fonte in {b for b in (base["features"], dir_man) if b}:
-        for caminho in uma_vez(_listar(base_fonte, "FECHAMENTO.md", profundidade=4, ignorar=ignorar)):
+        for caminho in uma_vez(_listar(base_fonte, "FECHAMENTO.md", profundidade=4, ignorar=ignorar, limite=raiz)):
             rel = _rel(raiz, caminho)
             texto, tipos = redigir(_texto(caminho))
             marcar(rel, tipos)
@@ -700,7 +711,7 @@ def coletar(raiz, cfg):
 
     # --- base/00-LACUNAS.md -------------------------------------------------
     for base_fonte in {b for b in (base["features"], dir_man) if b}:
-        for caminho in uma_vez(_listar(base_fonte, "00-LACUNAS.md", profundidade=4, ignorar=ignorar)):
+        for caminho in uma_vez(_listar(base_fonte, "00-LACUNAS.md", profundidade=4, ignorar=ignorar, limite=raiz)):
             rel = _rel(raiz, caminho)
             texto, tipos = redigir(_texto(caminho))
             marcar(rel, tipos)
@@ -718,7 +729,7 @@ def coletar(raiz, cfg):
                     reg["lacunas"].append({"lacuna": limpa[:200], "origem": rel})
 
     # --- docs/manutencao/*/QA.md -------------------------------------------
-    for caminho in _listar(dir_man, "QA.md", ignorar=ignorar):
+    for caminho in _listar(dir_man, "QA.md", ignorar=ignorar, limite=raiz):
         rel = _rel(raiz, caminho)
         texto, tipos = redigir(_texto(caminho))
         marcar(rel, tipos)
@@ -749,7 +760,7 @@ def coletar(raiz, cfg):
 
     # --- docs/entregas/*/ENTREGA.md ----------------------------------------
     dir_ent = base["entregas"]
-    for caminho in _listar(dir_ent, "ENTREGA.md", ignorar=ignorar):
+    for caminho in _listar(dir_ent, "ENTREGA.md", ignorar=ignorar, limite=raiz):
         rel = _rel(raiz, caminho)
         texto, tipos = redigir(_texto(caminho))
         marcar(rel, tipos)
@@ -775,7 +786,7 @@ def coletar(raiz, cfg):
     # --- docs/legado/DIVIDA.md ---------------------------------------------
     divida = {}
     caminho_div = os.path.join(base["legado"], "DIVIDA.md") if base["legado"] else None
-    if caminho_div and os.path.isfile(caminho_div):
+    if caminho_div and os.path.isfile(caminho_div) and _dentro(raiz, caminho_div):
         rel = _rel(raiz, caminho_div)
         texto, tipos = redigir(_texto(caminho_div))
         marcar(rel, tipos)
@@ -802,7 +813,7 @@ def coletar(raiz, cfg):
     # --- docs/legado/PERFIL.md — zonas de risco ----------------------------
     zonas = {}
     caminho_perfil = os.path.join(base["legado"], "PERFIL.md") if base["legado"] else None
-    if caminho_perfil and os.path.isfile(caminho_perfil):
+    if caminho_perfil and os.path.isfile(caminho_perfil) and _dentro(raiz, caminho_perfil):
         rel = _rel(raiz, caminho_perfil)
         texto, tipos = redigir(_texto(caminho_perfil))
         marcar(rel, tipos)
@@ -1137,6 +1148,8 @@ def assinatura_fontes(raiz, cfg):
                 if arq not in ALVOS_REINDEX:
                     continue
                 caminho = os.path.join(atual, arq)
+                if not _dentro(raiz, caminho):
+                    continue  # link para fora do projeto: nao e fonte
                 try:
                     st = os.stat(caminho)
                 except OSError:
@@ -1431,8 +1444,10 @@ def formatar_estado(indice, raiz):
         cfg = indice["config"]["fontes"]
         linhas = ["memox — nenhum trabalho fechado para indexar.",
                   "  O memox indexa artefatos ja gravados pelas outras camadas. Procurei em:"]
+        ignorar_cfg = set(indice["config"].get("ignorar") or [])
         for chave, caminho in sorted(cfg.items()):
-            existe = "existe" if os.path.isdir(os.path.join(raiz, caminho)) else "nao existe"
+            base_cfg = _base_da_fonte(raiz, caminho, ignorar_cfg)
+            existe = "existe" if base_cfg and os.path.isdir(base_cfg) else "nao existe"
             linhas.append("    %-28s (%s)" % (caminho, existe))
         linhas.append("  Sem artefato, o memox fica inativo — isso e o estado correto,")
         linhas.append("  nao uma falha. Feche um trabalho na sprintx ou na runx e reindexe.")
