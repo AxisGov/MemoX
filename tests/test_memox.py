@@ -384,6 +384,28 @@ VEREDITO: REPROVADO
             self.assertNotIn("src/externo.py", divida)
             self.assertEqual(memox.assinatura_fontes(str(raiz), memox.CONFIG_PADRAO), [])
 
+    def test_leitura_confere_o_arquivo_efetivamente_aberto(self):
+        # A pre-checagem (`_dentro` no `_listar`) e a leitura sao momentos distintos: um link
+        # trocado entre os dois faria abrir um arquivo de fora. Simula a troca: a pre-checagem
+        # aprova tudo, e mesmo assim a leitura recusa o que abre fora do projeto.
+        with TemporaryDirectory() as tmp, TemporaryDirectory() as fora:
+            raiz = Path(tmp)
+            escrever(Path(fora) / "tecnico.md", "---\ntrabalho_id: EXTERNO-3\nfechado_em: 2026-01-01\n---\nRelatorio externo.\n")
+            escrever(Path(fora) / "DIVIDA.md", "---\ndividas:\n  - arquivo: src/externo.py\n    descricao: x\n---\n")
+            (raiz / "docs" / "relatorios" / "OC-9-x").mkdir(parents=True)
+            (raiz / "docs" / "legado").mkdir(parents=True)
+            os.symlink(Path(fora) / "tecnico.md", raiz / "docs" / "relatorios" / "OC-9-x" / "tecnico.md")
+            os.symlink(Path(fora) / "DIVIDA.md", raiz / "docs" / "legado" / "DIVIDA.md")
+            dentro_original = memox._dentro
+            memox._dentro = lambda r, c: True
+            try:
+                trabalhos, divida = memox.coletar(str(raiz), memox.CONFIG_PADRAO)[:2]
+            finally:
+                memox._dentro = dentro_original
+            self.assertNotIn("EXTERNO-3", trabalhos)
+            self.assertNotIn("OC-9-x", trabalhos)  # recusado, nao vira trabalho vazio
+            self.assertNotIn("src/externo.py", divida)
+
     def test_estado_mostra_fonte_com_barra_invertida_como_existente(self):
         with TemporaryDirectory() as tmp:
             raiz = Path(tmp)

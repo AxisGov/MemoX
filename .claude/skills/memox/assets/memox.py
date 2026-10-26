@@ -352,7 +352,7 @@ def _rel(raiz, caminho):
     return os.path.relpath(caminho, raiz).replace(os.sep, "/")
 
 
-def _dentro(raiz, caminho):
+def _contido(raiz, caminho):
     """O caminho REAL fica dentro do projeto? Link simbolico para fora nao fica.
 
     Em Windows, unidades distintas fazem o commonpath falhar: isso e "fora".
@@ -362,6 +362,12 @@ def _dentro(raiz, caminho):
         return os.path.commonpath([real_raiz, os.path.realpath(caminho)]) == real_raiz
     except ValueError:
         return False
+
+
+def _dentro(raiz, caminho):
+    """A pre-checagem da coleta e da assinatura. A leitura confere de novo, por
+    conta propria (`_texto`), o arquivo que efetivamente abriu."""
+    return _contido(raiz, caminho)
 
 
 def _base_da_fonte(raiz, relativo, ignorar):
@@ -408,12 +414,28 @@ def _listar(diretorio, nome_alvo, profundidade=3, ignorar=None, limite=None):
     return sorted(achados)
 
 
-def _texto(caminho):
+def _texto(caminho, raiz=None):
+    """O texto do arquivo. Com `raiz`, a leitura e confinada ao projeto.
+
+    A pre-checagem do `_listar` e a leitura sao momentos distintos: um link
+    trocado entre os dois faria abrir um arquivo de fora. Por isso o arquivo
+    EFETIVAMENTE aberto e conferido: o caminho real esta dentro da raiz e e o
+    mesmo inode do descritor aberto. Recusado, devolve None (quem chama pula
+    o artefato); sem `raiz`, a leitura de sempre, e erro vira "".
+    """
     try:
         with open(caminho, encoding="utf-8", errors="replace") as fh:
+            if raiz is not None:
+                aberto = os.fstat(fh.fileno())
+                real = os.path.realpath(caminho)
+                if not _contido(raiz, real):
+                    return None
+                atual = os.stat(real)
+                if (atual.st_dev, atual.st_ino) != (aberto.st_dev, aberto.st_ino):
+                    return None
             return fh.read()
     except OSError:
-        return ""
+        return "" if raiz is None else None
 
 
 def _lista(valor):
@@ -536,7 +558,9 @@ def coletar(raiz, cfg):
     dir_rel = base["relatorios"]
     for caminho in _listar(dir_rel, "tecnico.md", ignorar=ignorar, limite=raiz):
         rel = _rel(raiz, caminho)
-        bruto = _texto(caminho)
+        bruto = _texto(caminho, raiz)
+        if bruto is None:
+            continue  # leitura recusada: o arquivo aberto nao e deste projeto
         texto, tipos = redigir(bruto)
         marcar(rel, tipos)
         fm, corpo = ler_frontmatter(texto)
@@ -565,7 +589,7 @@ def coletar(raiz, cfg):
     linha_do_tempo = []
     if caminho_indice and os.path.isfile(caminho_indice) and _dentro(raiz, caminho_indice):
         rel = _rel(raiz, caminho_indice)
-        texto, tipos = redigir(_texto(caminho_indice))
+        texto, tipos = redigir(_texto(caminho_indice, raiz) or "")  # recusada: vazio, nada entra
         marcar(rel, tipos)
         fm, _ = ler_frontmatter(texto)
         conferir(fm, rel, exige_frontmatter=False)
@@ -594,7 +618,10 @@ def coletar(raiz, cfg):
     dir_man = base["manutencao"]
     for caminho in _listar(dir_man, "01-CAUSA-RAIZ.md", ignorar=ignorar, limite=raiz):
         rel = _rel(raiz, caminho)
-        texto, tipos = redigir(_texto(caminho))
+        lido = _texto(caminho, raiz)
+        if lido is None:
+            continue  # leitura recusada: o arquivo aberto nao e deste projeto
+        texto, tipos = redigir(lido)
         marcar(rel, tipos)
         fm, corpo = ler_frontmatter(texto)
         conferir(fm, rel)
@@ -625,7 +652,10 @@ def coletar(raiz, cfg):
     for base_fonte in {b for b in (base["features"], dir_man) if b}:
         for caminho in uma_vez(_listar(base_fonte, "00-DECISOES.md", ignorar=ignorar, limite=raiz)):
             rel = _rel(raiz, caminho)
-            texto, tipos = redigir(_texto(caminho))
+            lido = _texto(caminho, raiz)
+            if lido is None:
+                continue  # leitura recusada: o arquivo aberto nao e deste projeto
+            texto, tipos = redigir(lido)
             marcar(rel, tipos)
             fm, _ = ler_frontmatter(texto)
             conferir(fm, rel)
@@ -650,7 +680,10 @@ def coletar(raiz, cfg):
     for base_fonte in {b for b in (base["features"], dir_man) if b}:
         for caminho in uma_vez(_listar(base_fonte, "ORQUESTRADOR.md", ignorar=ignorar, limite=raiz)):
             rel = _rel(raiz, caminho)
-            texto, tipos = redigir(_texto(caminho))
+            lido = _texto(caminho, raiz)
+            if lido is None:
+                continue  # leitura recusada: o arquivo aberto nao e deste projeto
+            texto, tipos = redigir(lido)
             marcar(rel, tipos)
             fm, _ = ler_frontmatter(texto)
             conferir(fm, rel)
@@ -675,7 +708,10 @@ def coletar(raiz, cfg):
     for base_fonte in {b for b in (base["features"], dir_man) if b}:
         for caminho in uma_vez(_listar(base_fonte, "FECHAMENTO.md", profundidade=4, ignorar=ignorar, limite=raiz)):
             rel = _rel(raiz, caminho)
-            texto, tipos = redigir(_texto(caminho))
+            lido = _texto(caminho, raiz)
+            if lido is None:
+                continue  # leitura recusada: o arquivo aberto nao e deste projeto
+            texto, tipos = redigir(lido)
             marcar(rel, tipos)
             fm, corpo = ler_frontmatter(texto)
             conferir(fm, rel)
@@ -713,7 +749,10 @@ def coletar(raiz, cfg):
     for base_fonte in {b for b in (base["features"], dir_man) if b}:
         for caminho in uma_vez(_listar(base_fonte, "00-LACUNAS.md", profundidade=4, ignorar=ignorar, limite=raiz)):
             rel = _rel(raiz, caminho)
-            texto, tipos = redigir(_texto(caminho))
+            lido = _texto(caminho, raiz)
+            if lido is None:
+                continue  # leitura recusada: o arquivo aberto nao e deste projeto
+            texto, tipos = redigir(lido)
             marcar(rel, tipos)
             pasta_trabalho = os.path.dirname(os.path.dirname(caminho))
             tid = os.path.basename(pasta_trabalho)
@@ -731,7 +770,10 @@ def coletar(raiz, cfg):
     # --- docs/manutencao/*/QA.md -------------------------------------------
     for caminho in _listar(dir_man, "QA.md", ignorar=ignorar, limite=raiz):
         rel = _rel(raiz, caminho)
-        texto, tipos = redigir(_texto(caminho))
+        lido = _texto(caminho, raiz)
+        if lido is None:
+            continue  # leitura recusada: o arquivo aberto nao e deste projeto
+        texto, tipos = redigir(lido)
         marcar(rel, tipos)
         fm, corpo = ler_frontmatter(texto)
         conferir(fm, rel)
@@ -762,7 +804,10 @@ def coletar(raiz, cfg):
     dir_ent = base["entregas"]
     for caminho in _listar(dir_ent, "ENTREGA.md", ignorar=ignorar, limite=raiz):
         rel = _rel(raiz, caminho)
-        texto, tipos = redigir(_texto(caminho))
+        lido = _texto(caminho, raiz)
+        if lido is None:
+            continue  # leitura recusada: o arquivo aberto nao e deste projeto
+        texto, tipos = redigir(lido)
         marcar(rel, tipos)
         fm, _ = ler_frontmatter(texto)
         conferir(fm, rel)
@@ -788,7 +833,7 @@ def coletar(raiz, cfg):
     caminho_div = os.path.join(base["legado"], "DIVIDA.md") if base["legado"] else None
     if caminho_div and os.path.isfile(caminho_div) and _dentro(raiz, caminho_div):
         rel = _rel(raiz, caminho_div)
-        texto, tipos = redigir(_texto(caminho_div))
+        texto, tipos = redigir(_texto(caminho_div, raiz) or "")  # recusada: vazio, nada entra
         marcar(rel, tipos)
         fm, corpo = ler_frontmatter(texto)
         conferir(fm, rel, exige_frontmatter=False)
@@ -815,7 +860,7 @@ def coletar(raiz, cfg):
     caminho_perfil = os.path.join(base["legado"], "PERFIL.md") if base["legado"] else None
     if caminho_perfil and os.path.isfile(caminho_perfil) and _dentro(raiz, caminho_perfil):
         rel = _rel(raiz, caminho_perfil)
-        texto, tipos = redigir(_texto(caminho_perfil))
+        texto, tipos = redigir(_texto(caminho_perfil, raiz) or "")  # recusada: vazio, nada entra
         marcar(rel, tipos)
         fm, corpo = ler_frontmatter(texto)
         conferir(fm, rel, exige_frontmatter=False)
