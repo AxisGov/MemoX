@@ -414,28 +414,82 @@ def _listar(diretorio, nome_alvo, profundidade=3, ignorar=None, limite=None):
     return sorted(achados)
 
 
-def _texto(caminho, raiz=None):
-    """O texto do arquivo. Com `raiz`, a leitura e confinada ao projeto.
+_ANCORA = (os.open in os.supports_dir_fd and hasattr(os, "O_NOFOLLOW")
+           and hasattr(os, "O_DIRECTORY"))
 
-    A pre-checagem do `_listar` e a leitura sao momentos distintos: um link
-    trocado entre os dois faria abrir um arquivo de fora. Por isso o arquivo
-    EFETIVAMENTE aberto e conferido: o caminho real esta dentro da raiz e e o
-    mesmo inode do descritor aberto. Recusado, devolve None (quem chama pula
-    o artefato); sem `raiz`, a leitura de sempre, e erro vira "".
+
+def _abrir_confinado(raiz, caminho):
+    """Descritor de leitura do arquivo, aberto DENTRO da raiz; ou None.
+
+    A pre-checagem do `_listar` e a leitura sao momentos distintos, e validar
+    por nome depois de abrir deixa janela para um link trocado no meio. Aqui
+    nao ha nome a revalidar: a raiz e aberta como diretorio e cada componente
+    do caminho relativo e aberto a partir do descritor do anterior (`dir_fd`),
+    com `O_NOFOLLOW` — nenhum link simbolico e seguido, nem para dentro do
+    projeto. Sem `dir_fd` (Windows), cai na validacao por nome: caminho real
+    dentro da raiz e o mesmo inode do arquivo aberto (melhor esforco).
     """
+    rel = os.path.relpath(caminho, raiz)
+    partes = rel.split(os.sep)
+    if rel.startswith("..") or os.path.isabs(rel) or any(p in ("", ".", "..") for p in partes):
+        return None
+    if not _ANCORA:
+        try:
+            fd = os.open(caminho, os.O_RDONLY | getattr(os, "O_BINARY", 0))
+        except OSError:
+            return None
+        try:
+            real = os.path.realpath(caminho)
+            atual, aberto = os.stat(real), os.fstat(fd)
+            if _contido(raiz, real) and (atual.st_dev, atual.st_ino) == (aberto.st_dev, aberto.st_ino):
+                return fd
+        except OSError:
+            pass
+        os.close(fd)
+        return None
     try:
-        with open(caminho, encoding="utf-8", errors="replace") as fh:
-            if raiz is not None:
-                aberto = os.fstat(fh.fileno())
-                real = os.path.realpath(caminho)
-                if not _contido(raiz, real):
-                    return None
-                atual = os.stat(real)
-                if (atual.st_dev, atual.st_ino) != (aberto.st_dev, aberto.st_ino):
-                    return None
+        dfd = os.open(raiz, os.O_RDONLY | os.O_DIRECTORY)
+    except OSError:
+        return None
+    try:
+        for parte in partes[:-1]:
+            novo = os.open(parte, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=dfd)
+            os.close(dfd)
+            dfd = novo
+        fd = os.open(partes[-1], os.O_RDONLY | os.O_NOFOLLOW, dir_fd=dfd)
+    except OSError:
+        return None
+    finally:
+        os.close(dfd)
+    try:
+        import stat as _st
+        if not _st.S_ISREG(os.fstat(fd).st_mode):
+            os.close(fd)
+            return None
+    except OSError:
+        os.close(fd)
+        return None
+    return fd
+
+
+def _texto(caminho, raiz=None):
+    """O texto do arquivo. Com `raiz`, aberto confinado ao projeto
+    (`_abrir_confinado`); recusado, devolve None e quem chama pula o artefato.
+    Sem `raiz`, a leitura de sempre, e erro vira ""."""
+    if raiz is None:
+        try:
+            with open(caminho, encoding="utf-8", errors="replace") as fh:
+                return fh.read()
+        except OSError:
+            return ""
+    fd = _abrir_confinado(raiz, caminho)
+    if fd is None:
+        return None
+    try:
+        with os.fdopen(fd, encoding="utf-8", errors="replace") as fh:
             return fh.read()
     except OSError:
-        return "" if raiz is None else None
+        return None
 
 
 def _lista(valor):
@@ -1195,10 +1249,16 @@ def assinatura_fontes(raiz, cfg):
                 caminho = os.path.join(atual, arq)
                 if not _dentro(raiz, caminho):
                     continue  # link para fora do projeto: nao e fonte
+                # os metadados vem do arquivo aberto confinado, como o conteudo na coleta
+                fd = _abrir_confinado(raiz, caminho)
+                if fd is None:
+                    continue
                 try:
-                    st = os.stat(caminho)
+                    st = os.fstat(fd)
                 except OSError:
                     continue
+                finally:
+                    os.close(fd)
                 assinatura.append([_rel(raiz, caminho), st.st_size, st.st_mtime_ns])
     return sorted(assinatura)
 

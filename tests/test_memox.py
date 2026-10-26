@@ -406,6 +406,25 @@ VEREDITO: REPROVADO
             self.assertNotIn("OC-9-x", trabalhos)  # recusado, nao vira trabalho vazio
             self.assertNotIn("src/externo.py", divida)
 
+    def test_leitura_sem_dir_fd_tambem_recusa_link_para_fora(self):
+        # O caminho de melhor esforco (sem dir_fd, como no Windows) tambem recusa.
+        ancora = memox._ANCORA
+        memox._ANCORA = False
+        try:
+            self.test_leitura_confere_o_arquivo_efetivamente_aberto()
+        finally:
+            memox._ANCORA = ancora
+
+    def test_pasta_link_dentro_do_projeto_nao_e_seguida(self):
+        # A abertura ancorada nao segue link nenhum, nem para dentro do projeto: falha fechada.
+        with TemporaryDirectory() as tmp:
+            raiz = Path(tmp)
+            self._tecnico(raiz / "arquivo-real")
+            (raiz / "docs" / "relatorios").mkdir(parents=True)
+            os.symlink(raiz / "arquivo-real" / "OC-1-x", raiz / "docs" / "relatorios" / "OC-1-x")
+            if memox._ANCORA:
+                self.assertIsNone(memox._texto(str(raiz / "docs" / "relatorios" / "OC-1-x" / "tecnico.md"), str(raiz)))
+
     def test_estado_mostra_fonte_com_barra_invertida_como_existente(self):
         with TemporaryDirectory() as tmp:
             raiz = Path(tmp)
