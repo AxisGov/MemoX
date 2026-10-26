@@ -336,6 +336,49 @@ VEREDITO: REPROVADO
             self.assertNotIn("OC-7", trabalhos)
             self.assertEqual(memox.assinatura_fontes(str(raiz), cfg), [])
 
+    def _tecnico(self, pasta, tid="OC-1"):
+        escrever(pasta / "OC-1-x" / "tecnico.md",
+                 "---\ntrabalho_id: %s\nfechado_em: 2026-01-01\n---\nRelatorio da fonte configurada.\n" % tid)
+
+    def test_fonte_com_barra_invertida_e_achada_em_posix(self):
+        # A validacao aceita `\\` como separador; a base tem de ser montada com ele tambem.
+        with TemporaryDirectory() as tmp:
+            raiz = Path(tmp)
+            self._tecnico(raiz / "documentacao" / "relatorios")
+            escrever(raiz / ".expx" / "memoria" / "config.json",
+                     json.dumps({"fontes": {"relatorios": "documentacao\\relatorios"}}))
+            cfg = memox.carregar_config(str(raiz))
+            self.assertIn("OC-1", memox.construir_indice(str(raiz), cfg)["trabalhos"])
+            self.assertTrue(memox.assinatura_fontes(str(raiz), cfg))
+
+    def test_fonte_com_raiz_oculta_configurada_e_lida(self):
+        with TemporaryDirectory() as tmp:
+            raiz = Path(tmp)
+            self._tecnico(raiz / ".historico" / "relatorios")
+            cfg = json.loads(json.dumps(memox.CONFIG_PADRAO))
+            cfg["fontes"]["relatorios"] = ".historico/relatorios"
+            self.assertIn("OC-1", memox.construir_indice(str(raiz), cfg)["trabalhos"])
+
+    def test_fonte_que_e_link_para_fora_do_projeto_nao_e_lida(self):
+        with TemporaryDirectory() as tmp, TemporaryDirectory() as fora:
+            raiz = Path(tmp)
+            self._tecnico(Path(fora), tid="EXTERNO-1")
+            (raiz / "docs").mkdir()
+            os.symlink(fora, raiz / "docs" / "relatorios")
+            indice = memox.construir_indice(str(raiz), memox.CONFIG_PADRAO)
+            self.assertNotIn("EXTERNO-1", indice["trabalhos"])
+            self.assertEqual(memox.assinatura_fontes(str(raiz), memox.CONFIG_PADRAO), [])
+
+    def test_artefato_da_manutencao_nao_e_lido_duas_vezes(self):
+        # `features` (docs) contem `manutencao` (docs/manutencao): a decisao entra uma vez so.
+        with TemporaryDirectory() as tmp:
+            raiz = Path(tmp)
+            escrever(raiz / "docs" / "manutencao" / "OC-2-x" / "00-DECISOES.md",
+                     "---\ntrabalho_id: OC-2\ndecisoes:\n  - id: D-01\n    decisao: usar cache local\n---\n")
+            indice = memox.construir_indice(str(raiz), memox.CONFIG_PADRAO)
+            ids = [d["id"] for d in indice["trabalhos"]["OC-2"]["decisoes"]]
+            self.assertEqual(ids, ["D-01"])
+
     def _promovida(self, sinais, sempre_incluir):
         # quatro recentes ocupam o limite de 3; a antiga so entra se promovida
         entradas = [{"trabalho_id": "T-%d" % n, "data": "2026-10-%02d" % (10 + n)} for n in range(4)]

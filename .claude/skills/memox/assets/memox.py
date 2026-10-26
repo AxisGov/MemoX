@@ -353,15 +353,26 @@ def _rel(raiz, caminho):
 
 
 def _base_da_fonte(raiz, relativo, ignorar):
-    """Caminho absoluto da fonte, ou None quando ela mesma esta ignorada.
+    """Caminho absoluto da fonte, ou None quando ela nao deve ser lida.
 
-    `ignorar` lista diretorios nao varridos: vale tambem para a raiz da fonte
-    (`ignorar: ["legado"]` desliga `docs/legado`), nao so para o que ha abaixo.
+    - `ignorar` vale tambem para a raiz da fonte (`ignorar: ["legado"]` desliga
+      `docs/legado`), nao so para o que ha abaixo. Raiz oculta configurada de
+      proposito (`.historico/relatorios`) e lida: so o que ha DENTRO dela segue
+      a regra das pastas ocultas.
+    - A base e montada com os componentes ja separados: `\\` e separador tambem
+      em POSIX, como na validacao (senao `docs\\relatorios` nao seria achado).
+    - Fonte que resolve para fora do projeto (link simbolico) nao e lida: o
+      indice so conhece artefato deste projeto.
     """
     partes = [p for p in re.split(r"[/\\]+", relativo or "") if p and p != "."]
-    if any(p in ignorar or p.startswith(".") for p in partes):
+    if not partes or any(p in ignorar for p in partes):
         return None
-    return os.path.join(raiz, relativo)
+    base = os.path.join(raiz, *partes)
+    real_raiz = os.path.realpath(raiz)
+    real_base = os.path.realpath(base)
+    if os.path.commonpath([real_raiz, real_base]) != real_raiz:
+        return None
+    return base
 
 
 def _listar(diretorio, nome_alvo, profundidade=3, ignorar=None):
@@ -445,6 +456,17 @@ def coletar(raiz, cfg):
     ignorar = cfg.get("ignorar")
     base = {chave: _base_da_fonte(raiz, fontes.get(chave), set(ignorar or []))
             for chave in ("relatorios", "manutencao", "entregas", "legado", "features")}
+    # `features` (docs) contem `manutencao` (docs/manutencao): o mesmo arquivo e
+    # achado pelas duas bases, e lido duas vezes duplicava decisoes e lacunas.
+    lidos = set()
+
+    def uma_vez(caminhos):
+        for caminho in caminhos:
+            chave_real = os.path.realpath(caminho)
+            if chave_real in lidos:
+                continue
+            lidos.add(chave_real)
+            yield caminho
     trabalhos = {}          # trabalho_id -> registro
     contaminados = {}       # caminho -> [tipos]
     avisos = []             # artefatos que nao entraram, e por que
@@ -590,7 +612,7 @@ def coletar(raiz, cfg):
 
     # --- 00-DECISOES.md (features e manutencao) -----------------------------
     for base_fonte in {b for b in (base["features"], dir_man) if b}:
-        for caminho in _listar(base_fonte, "00-DECISOES.md", ignorar=ignorar):
+        for caminho in uma_vez(_listar(base_fonte, "00-DECISOES.md", ignorar=ignorar)):
             rel = _rel(raiz, caminho)
             texto, tipos = redigir(_texto(caminho))
             marcar(rel, tipos)
@@ -615,7 +637,7 @@ def coletar(raiz, cfg):
 
     # --- ORQUESTRADOR.md — titulo, tipo e datas do trabalho -----------------
     for base_fonte in {b for b in (base["features"], dir_man) if b}:
-        for caminho in _listar(base_fonte, "ORQUESTRADOR.md", ignorar=ignorar):
+        for caminho in uma_vez(_listar(base_fonte, "ORQUESTRADOR.md", ignorar=ignorar)):
             rel = _rel(raiz, caminho)
             texto, tipos = redigir(_texto(caminho))
             marcar(rel, tipos)
@@ -640,7 +662,7 @@ def coletar(raiz, cfg):
     #
     # Profundidade 4: o layout novo e docs/sprintx/features/<slug>/FECHAMENTO.md.
     for base_fonte in {b for b in (base["features"], dir_man) if b}:
-        for caminho in _listar(base_fonte, "FECHAMENTO.md", profundidade=4, ignorar=ignorar):
+        for caminho in uma_vez(_listar(base_fonte, "FECHAMENTO.md", profundidade=4, ignorar=ignorar)):
             rel = _rel(raiz, caminho)
             texto, tipos = redigir(_texto(caminho))
             marcar(rel, tipos)
@@ -678,7 +700,7 @@ def coletar(raiz, cfg):
 
     # --- base/00-LACUNAS.md -------------------------------------------------
     for base_fonte in {b for b in (base["features"], dir_man) if b}:
-        for caminho in _listar(base_fonte, "00-LACUNAS.md", profundidade=4, ignorar=ignorar):
+        for caminho in uma_vez(_listar(base_fonte, "00-LACUNAS.md", profundidade=4, ignorar=ignorar)):
             rel = _rel(raiz, caminho)
             texto, tipos = redigir(_texto(caminho))
             marcar(rel, tipos)

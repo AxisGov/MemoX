@@ -48,7 +48,7 @@ Sinais que furam o limite de recência. A idade não os torna irrelevantes: um a
 
 `zona_de_risco` e `divida` são sinais **do arquivo**, não de uma entrada: aparecem na linha de sinais e não promovem entradas antigas.
 
-Esvaziar a lista faz o memox listar só as N mais recentes — o que descarta justamente o sinal mais valioso do índice. Tirar só um dos sinais (por exemplo, deixar `["regressao"]`) faz o outro deixar de promover.
+Esvaziar a lista faz o memox listar só as N mais recentes — o que descarta justamente o sinal mais valioso do índice. Entre os sinais que promovem — `regressao` e `reprovacao_qa` —, tirar só um (por exemplo, deixar `["regressao"]`) faz o outro deixar de promover. `zona_de_risco` na lista não muda a seleção: ele nunca promove entrada, só aparece na linha de sinais.
 
 ### `fontes`
 
@@ -58,7 +58,7 @@ Onde procurar cada tipo de artefato, relativo à raiz. Ajuste apenas se o projet
 
 ### `ignorar`
 
-Diretórios não varridos, nem na coleta nem na assinatura que decide a reindexação. Vale também para a raiz de uma fonte: `"legado"` em `ignorar` desliga `docs/legado` inteiro. Mantenha `node_modules`, `dist`, `build` e `.git`: varrer essas árvores é o único jeito realista de a indexação ficar lenta.
+Diretórios não varridos, nem na coleta nem na assinatura que decide a reindexação. Vale também para a raiz de uma fonte: `"legado"` em `ignorar` desliga `docs/legado` inteiro. Uma raiz oculta configurada de propósito em `fontes` (`.historico/relatorios`) é lida; o que há dentro dela segue a regra das pastas ocultas. Fonte que, por link simbólico, resolve para fora do projeto não é lida. Mantenha `node_modules`, `dist`, `build` e `.git`: varrer essas árvores é o único jeito realista de a indexação ficar lenta.
 
 ## Ajustes por perfil de projeto
 
