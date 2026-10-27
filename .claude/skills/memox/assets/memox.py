@@ -74,7 +74,8 @@ def dir_memoria(raiz):
 
 
 def _caminho_relativo_valido(valor):
-    """String nao vazia, relativa e sem `..` — com `/` ou `\\` como separador."""
+    """String nao vazia, relativa e sem componente `..` (`..historico` e um nome)
+    — com `/` ou `\\` como separador."""
     if not isinstance(valor, str) or not valor.strip():
         return False
     if os.path.isabs(valor) or valor.startswith(("/", "\\")) or re.match(r"^[A-Za-z]:", valor):
@@ -429,9 +430,14 @@ def _abrir_confinado(raiz, caminho):
     projeto. Sem `dir_fd` (Windows), cai na validacao por nome: caminho real
     dentro da raiz e o mesmo inode do arquivo aberto (melhor esforco).
     """
-    rel = os.path.relpath(caminho, raiz)
+    # O componente `..` sai pela lista de partes, nao pelo prefixo: `..historico`
+    # e um nome valido. Unidades distintas (Windows) nao tem caminho relativo.
+    try:
+        rel = os.path.relpath(caminho, raiz)
+    except ValueError:
+        return None
     partes = rel.split(os.sep)
-    if rel.startswith("..") or os.path.isabs(rel) or any(p in ("", ".", "..") for p in partes):
+    if os.path.isabs(rel) or any(p in ("", ".", "..") for p in partes):
         return None
     if not _ANCORA:
         try:
@@ -1702,6 +1708,11 @@ def main(argv):
                 sys.stderr.write("memox — --raiz pede um diretorio.\n")
                 return 2
             raiz, i = args[i + 1], i + 2
+            # Vazio nao e o diretorio atual (`abspath("")` seria o cwd). O valor
+            # nao e aparado: um nome com espaco nas bordas continua valido.
+            if not raiz.strip():
+                sys.stderr.write("memox — --raiz pede um diretorio.\n")
+                return 2
         elif args[i] == "--formato" and i + 1 < len(args):
             formato, i = args[i + 1], i + 2
         else:
