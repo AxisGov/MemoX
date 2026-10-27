@@ -6,7 +6,7 @@ Config ausente ou inválida não derruba nada: o motor cai nos padrões e segue 
 
 - inteiro: só inteiro de verdade (`true` não conta), maior ou igual a zero;
 - lista (`sempre_incluir`, `ignorar`): só lista de strings não vazias;
-- `fontes`: só as chaves conhecidas, e cada uma só com caminho relativo não vazio, sem `..` (com `/` ou `\`) e sem raiz absoluta ou letra de unidade. Chave desconhecida é ignorada.
+- `fontes`: só as chaves conhecidas, e cada uma só com caminho relativo não vazio, sem componente `..` (com `/` ou `\`; um nome como `..historico` vale) e sem raiz absoluta ou letra de unidade. Chave desconhecida é ignorada.
 
 ## Arquivo padrão
 

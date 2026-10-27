@@ -1,5 +1,6 @@
 import contextlib
 import subprocess
+import sys
 import time
 import importlib.util
 import io
@@ -289,11 +290,24 @@ VEREDITO: REPROVADO
                 (["memox.py", "estado", "--raiz", str(Path(tmp) / "nao-existe")], "nao e um diretorio"),
                 (["memox.py", "estado", "--raiz", str(arquivo)], "nao e um diretorio"),
                 (["memox.py", "estado", "--raiz"], "--raiz pede um diretorio"),
+                # Vazio nao e o diretorio atual: abspath("") viraria o cwd (CodeRabbit, #4).
+                (["memox.py", "estado", "--raiz", ""], "--raiz pede um diretorio"),
+                (["memox.py", "estado", "--raiz", "  "], "--raiz pede um diretorio"),
             ):
                 with self.subTest(argv=argv[2:]):
                     codigo, erro = self._main_stderr(argv)
                     self.assertEqual(codigo, 2)
                     self.assertIn(trecho, erro)
+
+    def test_raiz_vazia_pela_linha_de_comando_sai_com_erro(self):
+        # Pela CLI de verdade: o vazio nao vira o diretorio atual.
+        with TemporaryDirectory() as tmp:
+            for valor in ("", "  "):
+                with self.subTest(valor=valor):
+                    r = subprocess.run([sys.executable, str(MOTOR), "estado", "--raiz", valor],
+                                       cwd=tmp, capture_output=True, text=True)
+                    self.assertEqual(r.returncode, 2)
+                    self.assertIn("--raiz pede um diretorio", r.stderr)
 
     def test_sem_raiz_explicita_continua_subindo_ate_o_git(self):
         with TemporaryDirectory() as tmp:
@@ -358,6 +372,27 @@ VEREDITO: REPROVADO
             cfg = json.loads(json.dumps(memox.CONFIG_PADRAO))
             cfg["fontes"]["relatorios"] = ".historico/relatorios"
             self.assertIn("OC-1", memox.construir_indice(str(raiz), cfg)["trabalhos"])
+
+    def test_fonte_cujo_nome_comeca_com_dois_pontos_e_lida(self):
+        # `..historico` e um nome, nao o componente `..`: a validacao aceita, a
+        # listagem acha, e a abertura nao pode recusar (CodeRabbit, #4).
+        with TemporaryDirectory() as tmp:
+            raiz = Path(tmp)
+            self._tecnico(raiz / "..historico" / "relatorios")
+            escrever(raiz / ".expx" / "memoria" / "config.json",
+                     json.dumps({"fontes": {"relatorios": "..historico/relatorios"}}))
+            cfg = memox.carregar_config(str(raiz))
+            self.assertEqual(cfg["fontes"]["relatorios"], "..historico/relatorios")
+            self.assertIn("OC-1", memox.construir_indice(str(raiz), cfg)["trabalhos"])
+            self.assertTrue(memox.assinatura_fontes(str(raiz), cfg))
+
+    def test_fonte_cujo_nome_comeca_com_dois_pontos_e_lida_sem_dir_fd(self):
+        ancora = memox._ANCORA
+        memox._ANCORA = False
+        try:
+            self.test_fonte_cujo_nome_comeca_com_dois_pontos_e_lida()
+        finally:
+            memox._ANCORA = ancora
 
     def test_fonte_que_e_link_para_fora_do_projeto_nao_e_lida(self):
         with TemporaryDirectory() as tmp, TemporaryDirectory() as fora:
