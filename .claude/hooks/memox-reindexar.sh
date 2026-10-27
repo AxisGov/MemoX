@@ -32,9 +32,11 @@ else
   RAIZ="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 fi
 
-# inativo sem artefato
+# inativo sem artefato. Com config.json, as `fontes` podem apontar outra arvore,
+# e quem decide se ha o que indexar e o motor.
 if [ ! -d "$RAIZ/docs/relatorios" ] && [ ! -d "$RAIZ/docs/manutencao" ] \
-   && [ ! -d "$RAIZ/docs/entregas" ] && [ ! -d "$RAIZ/docs/legado" ]; then
+   && [ ! -d "$RAIZ/docs/entregas" ] && [ ! -d "$RAIZ/docs/legado" ] \
+   && [ ! -f "$RAIZ/.expx/memoria/config.json" ]; then
   exit 0
 fi
 

@@ -10,7 +10,7 @@
 #   - silencioso quando nao ha nada relevante (regra 5);
 #   - sai com 0 SEMPRE, inclusive em erro: falha aberta, nunca trava o prompt;
 #   - abaixo de 200 ms; sem rede, sem modelo;
-#   - inativo, sem erro, quando nao ha artefato nenhum.
+#   - inativo, sem erro, quando nao ha indice construido (DM-26).
 
 set -u
 
@@ -38,11 +38,11 @@ else
   RAIZ="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 fi
 
-# --- inativo sem artefato: nao existe memoria a injetar --------------------
-if [ ! -d "$RAIZ/docs/relatorios" ] && [ ! -d "$RAIZ/docs/manutencao" ] \
-   && [ ! -d "$RAIZ/docs/entregas" ] && [ ! -d "$RAIZ/docs/legado" ]; then
-  exit 0
-fi
+# --- inativo sem indice: nao existe memoria a injetar ----------------------
+# O motor nunca indexa dentro deste hook; sem indice construido ele so devolveria
+# silencio. Decidir pelo indice, e nao pelos caminhos padrao de docs/, faz o hook
+# valer tambem quando `fontes` aponta outra arvore no config.json.
+[ -f "$RAIZ/.expx/memoria/indice.json" ] || exit 0
 
 # --- delega ao motor: extracao de alvos + consulta + limites de ruido ------
 # Timeout duro: se por qualquer motivo passar de 2s, o prompt segue sem memoria.

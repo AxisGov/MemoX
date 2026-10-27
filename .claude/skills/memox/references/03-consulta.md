@@ -15,7 +15,7 @@ Quatro modos de consulta, todos sobre o índice em disco. **Sem chamada de model
 | por termo | `memox.py buscar <termo>` | onde este assunto já apareceu |
 | por trabalho | `memox.py trabalho <id>` | o histórico completo de uma ocorrência ou feature |
 
-Todos aceitam `--formato json` para consumo por outra skill, e `--raiz <dir>` para consultar um projeto que não é o diretório atual.
+Todos aceitam `--formato json` para consumo por outra skill, e `--raiz <dir>` para consultar um projeto que não é o diretório atual. O `--raiz` explícito vale como está: não sobe até o `.git` (num monorepo, `--raiz <pacote>` indexa só o pacote), e um caminho que não é diretório sai com código 2. Sem `--raiz`, a raiz é o repositório Git mais próximo; se nenhum ancestral tiver `.git`, é o diretório atual.
 
 ### Casamento parcial
 
@@ -46,7 +46,7 @@ A parte que decide se isso é útil ou irritante. Arquivo muito tocado aparece e
 ### As regras
 
 1. **No máximo 3 entradas recentes** por arquivo (`max_entradas_recentes`).
-2. **Mais**, sempre e independentemente da data, as entradas que envolveram **regressão** ou **reprovação em QA**. Elas furam o limite de recência porque a idade não as torna irrelevantes: um arquivo que regrediu há dois anos continua sendo um arquivo que regride.
+2. **Mais**, independentemente da data, as entradas que envolveram **regressão** ou **reprovação em QA** — o padrão de `sempre_incluir`. A lista manda: um sinal fora dela não promove entrada, e a lista vazia deixa só as recentes. Elas furam o limite de recência porque a idade não as torna irrelevantes: um arquivo que regrediu há dois anos continua sendo um arquivo que regride.
 3. **Acima de 8 entradas relevantes** (`teto_entradas`), não lista: informa a contagem e aponta o índice, deixando o humano decidir se abre.
 
 Zona de risco e dívida são sinais **do arquivo**, não de uma entrada: aparecem na linha de sinais e não promovem entradas antigas para a lista.

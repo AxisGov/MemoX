@@ -73,7 +73,21 @@ def dir_memoria(raiz):
     return os.path.join(raiz, ".expx", "memoria")
 
 
+def _caminho_relativo_valido(valor):
+    """String nao vazia, relativa e sem `..` — com `/` ou `\\` como separador."""
+    if not isinstance(valor, str) or not valor.strip():
+        return False
+    if os.path.isabs(valor) or valor.startswith(("/", "\\")) or re.match(r"^[A-Za-z]:", valor):
+        return False
+    return ".." not in re.split(r"[/\\]+", valor)
+
+
 def carregar_config(raiz):
+    """Config do projeto sobre os padroes, validada chave a chave.
+
+    O que nao passa na validacao fica com o padrao, sem derrubar nada (falha
+    aberta): um valor ruim dentro de `fontes` nao pode chegar ao os.path.join.
+    """
     cfg = json.loads(json.dumps(CONFIG_PADRAO))
     caminho = os.path.join(dir_memoria(raiz), "config.json")
     if os.path.isfile(caminho):
@@ -86,12 +100,16 @@ def carregar_config(raiz):
                 padrao = cfg.get(chave)
                 if isinstance(padrao, dict):
                     if isinstance(valor, dict):
-                        cfg[chave].update(valor)
+                        # so as chaves conhecidas, e so caminho relativo valido
+                        for sub, caminho_fonte in valor.items():
+                            if sub in padrao and _caminho_relativo_valido(caminho_fonte):
+                                cfg[chave][sub] = caminho_fonte
                 elif isinstance(padrao, list):
-                    if isinstance(valor, list):
+                    if isinstance(valor, list) and all(isinstance(v, str) and v.strip() for v in valor):
                         cfg[chave] = valor
                 elif isinstance(padrao, int) and not isinstance(padrao, bool):
-                    if isinstance(valor, int) and not isinstance(valor, bool):
+                    # negativo faria o corte da selecao contar de tras para frente
+                    if isinstance(valor, int) and not isinstance(valor, bool) and valor >= 0:
                         cfg[chave] = valor
                 elif isinstance(valor, type(padrao)):
                     cfg[chave] = valor
@@ -334,29 +352,144 @@ def _rel(raiz, caminho):
     return os.path.relpath(caminho, raiz).replace(os.sep, "/")
 
 
-def _listar(diretorio, nome_alvo, profundidade=3):
-    """Procura arquivos com um nome dado ate `profundidade` niveis."""
+def _contido(raiz, caminho):
+    """O caminho REAL fica dentro do projeto? Link simbolico para fora nao fica.
+
+    Em Windows, unidades distintas fazem o commonpath falhar: isso e "fora".
+    """
+    real_raiz = os.path.realpath(raiz)
+    try:
+        return os.path.commonpath([real_raiz, os.path.realpath(caminho)]) == real_raiz
+    except ValueError:
+        return False
+
+
+def _dentro(raiz, caminho):
+    """A pre-checagem da coleta e da assinatura. A leitura confere de novo, por
+    conta propria (`_texto`), o arquivo que efetivamente abriu."""
+    return _contido(raiz, caminho)
+
+
+def _base_da_fonte(raiz, relativo, ignorar):
+    """Caminho absoluto da fonte, ou None quando ela nao deve ser lida.
+
+    - `ignorar` vale tambem para a raiz da fonte (`ignorar: ["legado"]` desliga
+      `docs/legado`), nao so para o que ha abaixo. Raiz oculta configurada de
+      proposito (`.historico/relatorios`) e lida: so o que ha DENTRO dela segue
+      a regra das pastas ocultas.
+    - A base e montada com os componentes ja separados: `\\` e separador tambem
+      em POSIX, como na validacao (senao `docs\\relatorios` nao seria achado).
+    - Fonte que resolve para fora do projeto (link simbolico) nao e lida: o
+      indice so conhece artefato deste projeto.
+    """
+    partes = [p for p in re.split(r"[/\\]+", relativo or "") if p and p != "."]
+    if not partes or any(p in ignorar for p in partes):
+        return None
+    base = os.path.join(raiz, *partes)
+    return base if _dentro(raiz, base) else None
+
+
+def _listar(diretorio, nome_alvo, profundidade=3, ignorar=None, limite=None):
+    """Procura arquivos com um nome dado ate `profundidade` niveis.
+
+    `ignorar` e o da config carregada, o mesmo do assinatura_fontes; sem ele,
+    o padrao. Com `limite` (a raiz do projeto), arquivo que e link para fora
+    dela nao e devolvido: a fonte ser do projeto nao basta.
+    """
+    ignorar = set(CONFIG_PADRAO["ignorar"] if ignorar is None else ignorar)
     achados = []
-    if not os.path.isdir(diretorio):
+    if not diretorio or not os.path.isdir(diretorio):
         return achados
     base_nivel = diretorio.rstrip(os.sep).count(os.sep)
     for atual, dirs, arqs in os.walk(diretorio):
-        dirs[:] = [d for d in dirs if not d.startswith(".") and d not in CONFIG_PADRAO["ignorar"]]
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d not in ignorar]
         if atual.count(os.sep) - base_nivel > profundidade:
             dirs[:] = []
             continue
         for arq in arqs:
             if arq == nome_alvo:
-                achados.append(os.path.join(atual, arq))
+                caminho = os.path.join(atual, arq)
+                if limite is None or _dentro(limite, caminho):
+                    achados.append(caminho)
     return sorted(achados)
 
 
-def _texto(caminho):
+_ANCORA = (os.open in os.supports_dir_fd and hasattr(os, "O_NOFOLLOW")
+           and hasattr(os, "O_DIRECTORY"))
+
+
+def _abrir_confinado(raiz, caminho):
+    """Descritor de leitura do arquivo, aberto DENTRO da raiz; ou None.
+
+    A pre-checagem do `_listar` e a leitura sao momentos distintos, e validar
+    por nome depois de abrir deixa janela para um link trocado no meio. Aqui
+    nao ha nome a revalidar: a raiz e aberta como diretorio e cada componente
+    do caminho relativo e aberto a partir do descritor do anterior (`dir_fd`),
+    com `O_NOFOLLOW` — nenhum link simbolico e seguido, nem para dentro do
+    projeto. Sem `dir_fd` (Windows), cai na validacao por nome: caminho real
+    dentro da raiz e o mesmo inode do arquivo aberto (melhor esforco).
+    """
+    rel = os.path.relpath(caminho, raiz)
+    partes = rel.split(os.sep)
+    if rel.startswith("..") or os.path.isabs(rel) or any(p in ("", ".", "..") for p in partes):
+        return None
+    if not _ANCORA:
+        try:
+            fd = os.open(caminho, os.O_RDONLY | getattr(os, "O_BINARY", 0))
+        except OSError:
+            return None
+        try:
+            real = os.path.realpath(caminho)
+            atual, aberto = os.stat(real), os.fstat(fd)
+            if _contido(raiz, real) and (atual.st_dev, atual.st_ino) == (aberto.st_dev, aberto.st_ino):
+                return fd
+        except OSError:
+            pass
+        os.close(fd)
+        return None
     try:
-        with open(caminho, encoding="utf-8", errors="replace") as fh:
+        dfd = os.open(raiz, os.O_RDONLY | os.O_DIRECTORY)
+    except OSError:
+        return None
+    try:
+        for parte in partes[:-1]:
+            novo = os.open(parte, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=dfd)
+            os.close(dfd)
+            dfd = novo
+        fd = os.open(partes[-1], os.O_RDONLY | os.O_NOFOLLOW, dir_fd=dfd)
+    except OSError:
+        return None
+    finally:
+        os.close(dfd)
+    try:
+        import stat as _st
+        if not _st.S_ISREG(os.fstat(fd).st_mode):
+            os.close(fd)
+            return None
+    except OSError:
+        os.close(fd)
+        return None
+    return fd
+
+
+def _texto(caminho, raiz=None):
+    """O texto do arquivo. Com `raiz`, aberto confinado ao projeto
+    (`_abrir_confinado`); recusado, devolve None e quem chama pula o artefato.
+    Sem `raiz`, a leitura de sempre, e erro vira ""."""
+    if raiz is None:
+        try:
+            with open(caminho, encoding="utf-8", errors="replace") as fh:
+                return fh.read()
+        except OSError:
+            return ""
+    fd = _abrir_confinado(raiz, caminho)
+    if fd is None:
+        return None
+    try:
+        with os.fdopen(fd, encoding="utf-8", errors="replace") as fh:
             return fh.read()
     except OSError:
-        return ""
+        return None
 
 
 def _lista(valor):
@@ -407,6 +540,20 @@ def _secao(texto, titulos):
 def coletar(raiz, cfg):
     """Le todos os artefatos e devolve (trabalhos, divida, contaminados, avisos)."""
     fontes = cfg["fontes"]
+    ignorar = cfg.get("ignorar")
+    base = {chave: _base_da_fonte(raiz, fontes.get(chave), set(ignorar or []))
+            for chave in ("relatorios", "manutencao", "entregas", "legado", "features")}
+    # `features` (docs) contem `manutencao` (docs/manutencao): o mesmo arquivo e
+    # achado pelas duas bases, e lido duas vezes duplicava decisoes e lacunas.
+    lidos = set()
+
+    def uma_vez(caminhos):
+        for caminho in caminhos:
+            chave_real = os.path.realpath(caminho)
+            if chave_real in lidos:
+                continue
+            lidos.add(chave_real)
+            yield caminho
     trabalhos = {}          # trabalho_id -> registro
     contaminados = {}       # caminho -> [tipos]
     avisos = []             # artefatos que nao entraram, e por que
@@ -462,10 +609,12 @@ def coletar(raiz, cfg):
         return reg
 
     # --- docs/relatorios/*/tecnico.md ---------------------------------------
-    dir_rel = os.path.join(raiz, fontes["relatorios"])
-    for caminho in _listar(dir_rel, "tecnico.md"):
+    dir_rel = base["relatorios"]
+    for caminho in _listar(dir_rel, "tecnico.md", ignorar=ignorar, limite=raiz):
         rel = _rel(raiz, caminho)
-        bruto = _texto(caminho)
+        bruto = _texto(caminho, raiz)
+        if bruto is None:
+            continue  # leitura recusada: o arquivo aberto nao e deste projeto
         texto, tipos = redigir(bruto)
         marcar(rel, tipos)
         fm, corpo = ler_frontmatter(texto)
@@ -490,11 +639,11 @@ def coletar(raiz, cfg):
         reg["resumo"] = reg["resumo"] or _uma_linha(corpo)
 
     # --- docs/relatorios/INDICE.md — a linha do tempo -----------------------
-    caminho_indice = os.path.join(dir_rel, "INDICE.md")
+    caminho_indice = os.path.join(dir_rel, "INDICE.md") if dir_rel else None
     linha_do_tempo = []
-    if os.path.isfile(caminho_indice):
+    if caminho_indice and os.path.isfile(caminho_indice) and _dentro(raiz, caminho_indice):
         rel = _rel(raiz, caminho_indice)
-        texto, tipos = redigir(_texto(caminho_indice))
+        texto, tipos = redigir(_texto(caminho_indice, raiz) or "")  # recusada: vazio, nada entra
         marcar(rel, tipos)
         fm, _ = ler_frontmatter(texto)
         conferir(fm, rel, exige_frontmatter=False)
@@ -520,10 +669,13 @@ def coletar(raiz, cfg):
                     reg["modulos"] = sorted(set(reg["modulos"]) | {str(entrada["modulo"])})
 
     # --- docs/manutencao/*/01-CAUSA-RAIZ.md ---------------------------------
-    dir_man = os.path.join(raiz, fontes["manutencao"])
-    for caminho in _listar(dir_man, "01-CAUSA-RAIZ.md"):
+    dir_man = base["manutencao"]
+    for caminho in _listar(dir_man, "01-CAUSA-RAIZ.md", ignorar=ignorar, limite=raiz):
         rel = _rel(raiz, caminho)
-        texto, tipos = redigir(_texto(caminho))
+        lido = _texto(caminho, raiz)
+        if lido is None:
+            continue  # leitura recusada: o arquivo aberto nao e deste projeto
+        texto, tipos = redigir(lido)
         marcar(rel, tipos)
         fm, corpo = ler_frontmatter(texto)
         conferir(fm, rel)
@@ -551,10 +703,13 @@ def coletar(raiz, cfg):
                 })
 
     # --- 00-DECISOES.md (features e manutencao) -----------------------------
-    for base in {os.path.join(raiz, fontes["features"]), dir_man}:
-        for caminho in _listar(base, "00-DECISOES.md"):
+    for base_fonte in {b for b in (base["features"], dir_man) if b}:
+        for caminho in uma_vez(_listar(base_fonte, "00-DECISOES.md", ignorar=ignorar, limite=raiz)):
             rel = _rel(raiz, caminho)
-            texto, tipos = redigir(_texto(caminho))
+            lido = _texto(caminho, raiz)
+            if lido is None:
+                continue  # leitura recusada: o arquivo aberto nao e deste projeto
+            texto, tipos = redigir(lido)
             marcar(rel, tipos)
             fm, _ = ler_frontmatter(texto)
             conferir(fm, rel)
@@ -576,10 +731,13 @@ def coletar(raiz, cfg):
                     })
 
     # --- ORQUESTRADOR.md — titulo, tipo e datas do trabalho -----------------
-    for base in {os.path.join(raiz, fontes["features"]), dir_man}:
-        for caminho in _listar(base, "ORQUESTRADOR.md"):
+    for base_fonte in {b for b in (base["features"], dir_man) if b}:
+        for caminho in uma_vez(_listar(base_fonte, "ORQUESTRADOR.md", ignorar=ignorar, limite=raiz)):
             rel = _rel(raiz, caminho)
-            texto, tipos = redigir(_texto(caminho))
+            lido = _texto(caminho, raiz)
+            if lido is None:
+                continue  # leitura recusada: o arquivo aberto nao e deste projeto
+            texto, tipos = redigir(lido)
             marcar(rel, tipos)
             fm, _ = ler_frontmatter(texto)
             conferir(fm, rel)
@@ -601,10 +759,13 @@ def coletar(raiz, cfg):
     # arquivo" — a propria sprintx promete o contrario no seu 00-schema.md.
     #
     # Profundidade 4: o layout novo e docs/sprintx/features/<slug>/FECHAMENTO.md.
-    for base in {os.path.join(raiz, fontes["features"]), dir_man}:
-        for caminho in _listar(base, "FECHAMENTO.md", profundidade=4):
+    for base_fonte in {b for b in (base["features"], dir_man) if b}:
+        for caminho in uma_vez(_listar(base_fonte, "FECHAMENTO.md", profundidade=4, ignorar=ignorar, limite=raiz)):
             rel = _rel(raiz, caminho)
-            texto, tipos = redigir(_texto(caminho))
+            lido = _texto(caminho, raiz)
+            if lido is None:
+                continue  # leitura recusada: o arquivo aberto nao e deste projeto
+            texto, tipos = redigir(lido)
             marcar(rel, tipos)
             fm, corpo = ler_frontmatter(texto)
             conferir(fm, rel)
@@ -639,10 +800,13 @@ def coletar(raiz, cfg):
             )
 
     # --- base/00-LACUNAS.md -------------------------------------------------
-    for base in {os.path.join(raiz, fontes["features"]), dir_man}:
-        for caminho in _listar(base, "00-LACUNAS.md", profundidade=4):
+    for base_fonte in {b for b in (base["features"], dir_man) if b}:
+        for caminho in uma_vez(_listar(base_fonte, "00-LACUNAS.md", profundidade=4, ignorar=ignorar, limite=raiz)):
             rel = _rel(raiz, caminho)
-            texto, tipos = redigir(_texto(caminho))
+            lido = _texto(caminho, raiz)
+            if lido is None:
+                continue  # leitura recusada: o arquivo aberto nao e deste projeto
+            texto, tipos = redigir(lido)
             marcar(rel, tipos)
             pasta_trabalho = os.path.dirname(os.path.dirname(caminho))
             tid = os.path.basename(pasta_trabalho)
@@ -658,9 +822,12 @@ def coletar(raiz, cfg):
                     reg["lacunas"].append({"lacuna": limpa[:200], "origem": rel})
 
     # --- docs/manutencao/*/QA.md -------------------------------------------
-    for caminho in _listar(dir_man, "QA.md"):
+    for caminho in _listar(dir_man, "QA.md", ignorar=ignorar, limite=raiz):
         rel = _rel(raiz, caminho)
-        texto, tipos = redigir(_texto(caminho))
+        lido = _texto(caminho, raiz)
+        if lido is None:
+            continue  # leitura recusada: o arquivo aberto nao e deste projeto
+        texto, tipos = redigir(lido)
         marcar(rel, tipos)
         fm, corpo = ler_frontmatter(texto)
         conferir(fm, rel)
@@ -688,10 +855,13 @@ def coletar(raiz, cfg):
         }
 
     # --- docs/entregas/*/ENTREGA.md ----------------------------------------
-    dir_ent = os.path.join(raiz, fontes["entregas"])
-    for caminho in _listar(dir_ent, "ENTREGA.md"):
+    dir_ent = base["entregas"]
+    for caminho in _listar(dir_ent, "ENTREGA.md", ignorar=ignorar, limite=raiz):
         rel = _rel(raiz, caminho)
-        texto, tipos = redigir(_texto(caminho))
+        lido = _texto(caminho, raiz)
+        if lido is None:
+            continue  # leitura recusada: o arquivo aberto nao e deste projeto
+        texto, tipos = redigir(lido)
         marcar(rel, tipos)
         fm, _ = ler_frontmatter(texto)
         conferir(fm, rel)
@@ -714,10 +884,10 @@ def coletar(raiz, cfg):
 
     # --- docs/legado/DIVIDA.md ---------------------------------------------
     divida = {}
-    caminho_div = os.path.join(raiz, fontes["legado"], "DIVIDA.md")
-    if os.path.isfile(caminho_div):
+    caminho_div = os.path.join(base["legado"], "DIVIDA.md") if base["legado"] else None
+    if caminho_div and os.path.isfile(caminho_div) and _dentro(raiz, caminho_div):
         rel = _rel(raiz, caminho_div)
-        texto, tipos = redigir(_texto(caminho_div))
+        texto, tipos = redigir(_texto(caminho_div, raiz) or "")  # recusada: vazio, nada entra
         marcar(rel, tipos)
         fm, corpo = ler_frontmatter(texto)
         conferir(fm, rel, exige_frontmatter=False)
@@ -741,10 +911,10 @@ def coletar(raiz, cfg):
 
     # --- docs/legado/PERFIL.md — zonas de risco ----------------------------
     zonas = {}
-    caminho_perfil = os.path.join(raiz, fontes["legado"], "PERFIL.md")
-    if os.path.isfile(caminho_perfil):
+    caminho_perfil = os.path.join(base["legado"], "PERFIL.md") if base["legado"] else None
+    if caminho_perfil and os.path.isfile(caminho_perfil) and _dentro(raiz, caminho_perfil):
         rel = _rel(raiz, caminho_perfil)
-        texto, tipos = redigir(_texto(caminho_perfil))
+        texto, tipos = redigir(_texto(caminho_perfil, raiz) or "")  # recusada: vazio, nada entra
         marcar(rel, tipos)
         fm, corpo = ler_frontmatter(texto)
         conferir(fm, rel, exige_frontmatter=False)
@@ -1064,8 +1234,8 @@ def assinatura_fontes(raiz, cfg):
         relativo = fontes.get(chave)
         if not isinstance(relativo, str):
             continue
-        base = os.path.join(raiz, relativo)
-        if not os.path.isdir(base):
+        base = _base_da_fonte(raiz, relativo, ignorar)
+        if not base or not os.path.isdir(base):
             continue
         base_nivel = base.rstrip(os.sep).count(os.sep)
         for atual, dirs, arqs in os.walk(base):
@@ -1077,10 +1247,18 @@ def assinatura_fontes(raiz, cfg):
                 if arq not in ALVOS_REINDEX:
                     continue
                 caminho = os.path.join(atual, arq)
+                if not _dentro(raiz, caminho):
+                    continue  # link para fora do projeto: nao e fonte
+                # os metadados vem do arquivo aberto confinado, como o conteudo na coleta
+                fd = _abrir_confinado(raiz, caminho)
+                if fd is None:
+                    continue
                 try:
-                    st = os.stat(caminho)
+                    st = os.fstat(fd)
                 except OSError:
                     continue
+                finally:
+                    os.close(fd)
                 assinatura.append([_rel(raiz, caminho), st.st_size, st.st_mtime_ns])
     return sorted(assinatura)
 
@@ -1119,8 +1297,12 @@ def carregar_indice(raiz):
 # consulta — regra 6, controle de ruido
 # ---------------------------------------------------------------------------
 
-def _relevante(entrada, sinais):
-    """Entrada que fura o limite de recencia: regressao, QA reprovado ou zona de risco."""
+def _relevante(entrada, sinais, incluir=None):
+    """Entrada que fura o limite de recencia: regressao, QA reprovado ou zona de risco.
+
+    So os motivos listados em `sempre_incluir` (`incluir`) contam.
+    """
+    incluir = set(CONFIG_PADRAO["sempre_incluir"] if incluir is None else incluir)
     motivos = []
     regs = (sinais or {}).get("regressoes")
     for r in (regs if isinstance(regs, list) else []):
@@ -1133,7 +1315,7 @@ def _relevante(entrada, sinais):
             break
     if (sinais or {}).get("zona_de_risco"):
         motivos.append("zona_de_risco")
-    return motivos
+    return [m for m in motivos if m in incluir]
 
 
 def selecionar(entradas, sinais, cfg):
@@ -1149,7 +1331,7 @@ def selecionar(entradas, sinais, cfg):
     for e in ordenadas:
         if e["trabalho_id"] in motivos:
             continue
-        m = _relevante(e, sinais)
+        m = _relevante(e, sinais, cfg.get("sempre_incluir"))
         # zona de risco sozinha nao promove entrada antiga: e sinal do arquivo, nao da entrada
         m = [x for x in m if x != "zona_de_risco"]
         if m:
@@ -1367,8 +1549,10 @@ def formatar_estado(indice, raiz):
         cfg = indice["config"]["fontes"]
         linhas = ["memox — nenhum trabalho fechado para indexar.",
                   "  O memox indexa artefatos ja gravados pelas outras camadas. Procurei em:"]
+        ignorar_cfg = set(indice["config"].get("ignorar") or [])
         for chave, caminho in sorted(cfg.items()):
-            existe = "existe" if os.path.isdir(os.path.join(raiz, caminho)) else "nao existe"
+            base_cfg = _base_da_fonte(raiz, caminho, ignorar_cfg)
+            existe = "existe" if base_cfg and os.path.isdir(base_cfg) else "nao existe"
             linhas.append("    %-28s (%s)" % (caminho, existe))
         linhas.append("  Sem artefato, o memox fica inativo — isso e o estado correto,")
         linhas.append("  nao uma falha. Feche um trabalho na sprintx ou na runx e reindexe.")
@@ -1513,14 +1697,25 @@ def main(argv):
     resto = []
     i = 0
     while i < len(args):
-        if args[i] == "--raiz" and i + 1 < len(args):
+        if args[i] == "--raiz":
+            if i + 1 >= len(args):
+                sys.stderr.write("memox — --raiz pede um diretorio.\n")
+                return 2
             raiz, i = args[i + 1], i + 2
         elif args[i] == "--formato" and i + 1 < len(args):
             formato, i = args[i + 1], i + 2
         else:
             resto.append(args[i])
             i += 1
-    raiz = raiz_projeto(raiz)
+    if raiz is None:
+        raiz = raiz_projeto()
+    else:
+        # `--raiz` explicito vale como esta: num monorepo, o pacote e a raiz.
+        # Subir ate o `.git` indexaria o repositorio inteiro.
+        raiz = os.path.abspath(raiz)
+        if not os.path.isdir(raiz):
+            sys.stderr.write("memox — --raiz nao e um diretorio: %s\n" % raiz)
+            return 2
     cfg = carregar_config(raiz)
     alvo = " ".join(resto).strip()
 
