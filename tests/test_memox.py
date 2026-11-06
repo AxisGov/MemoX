@@ -318,6 +318,10 @@ class MemoxRegressoesTest(unittest.TestCase):
             # a aspa escapada nao fecha: o valor e OC-\"1 #, e nao OC-
             ("regressao_de: \"OC-\\\"1 # x\" # nota\nevidencia_regressao: \"commit abc\"\n",
              "atribui a regressao a OC-\\\"1 # x"),
+            # espaco antes do `:`, como o parser aceita (CodeRabbit no MemoX#6)
+            ("regressao_de : \"OC-1\" # commit abc\nevidencia_regressao: \"commit abc\"\n", None),
+            # o que sobra do comentario mantem o tipo: `3` e inteiro, invalido
+            ("regressao_de: 3 # nota\nevidencia_regressao: \"commit abc\"\n", "regressao_de invalido"),
             # sem espaco antes do `#`, nao e comentario
             ("regressao_de: \"OC-1\"#nota\nevidencia_regressao: \"commit abc\"\n",
              "atribui a regressao a \"OC-1\"#nota"),

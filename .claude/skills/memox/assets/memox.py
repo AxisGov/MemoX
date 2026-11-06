@@ -975,15 +975,21 @@ def _data_ord(valor):
 
 
 def _bruto_no_frontmatter(texto, chave):
-    """O valor cru da chave de topo no frontmatter, antes do parser (ou None)."""
+    """O valor cru da chave de topo no frontmatter, antes do parser (ou None).
+
+    Casa a chave como o `_parse_bloco` (espaco antes do `:` vale), na coluna 0;
+    repetida, vale a ultima, como no mapa do parser.
+    """
     linhas = texto.split("\n")
     if not linhas or linhas[0].strip() != "---":
         return None
+    achado = None
     for linha in linhas[1:]:
         if linha.strip() == "---":
-            return None
-        if linha.startswith(chave + ":"):
-            return linha[len(chave) + 1:].strip()
+            return achado
+        m = re.match(r"^" + re.escape(chave) + r"\s*:\s*(.*)$", linha)
+        if m:
+            achado = m.group(1).strip()
     return None
 
 
@@ -1020,7 +1026,9 @@ def _sem_comentario(valor, bruto):
             return bruto[1:i]
         return valor
     limpo = "" if valor.startswith("#") else re.sub(r"\s+#.*$", "", valor)
-    return None if limpo in ("", "null", "~") else limpo
+    # o que sobra e lido de novo como escalar: `3 # x` continua inteiro (e
+    # invalido), e `null # x`, nulo
+    return _escalar(limpo)
 
 
 def declaracao_de_regressao(reg):
