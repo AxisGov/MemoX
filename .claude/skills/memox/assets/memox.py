@@ -990,14 +990,34 @@ def _bruto_no_frontmatter(texto, chave):
 def _sem_comentario(valor, bruto):
     """O `regressao_de` sem o comentario YAML do fim (`OC-1 # nota`).
 
-    O parser so tira o comentario de linha inteira. So o valor sem aspas no
-    texto cru (`bruto`) tem comentario: entre aspas, `#` e parte do valor. Um
-    trabalho_id nunca tem ` #`, e o que sobra vazio, `null` ou `~` e nulo, como
-    no escalar. O espaco nas bordas do que sobra fica, e continua invalido.
+    O parser so tira o comentario de linha inteira. No texto cru (`bruto`), o
+    valor entre aspas termina na aspa que fecha (`\\"` nas duplas e `''` nas
+    simples nao fecham): o que vem depois so e comentario se for espaco e `#`, e
+    entao o valor e o miolo, cru como o escalar o daria; dentro das aspas, `#` e
+    parte do valor. Sem aspas, um trabalho_id nunca tem ` #`, e o que sobra
+    vazio, `null` ou `~` e nulo, como no escalar. O espaco nas bordas do que
+    sobra fica, e continua invalido.
     """
     if not isinstance(valor, str) or not re.search(r"(^|\s)#", valor):
         return valor
-    if bruto is None or bruto.startswith(("'", '"')):
+    if bruto is None:
+        return valor
+    if bruto.startswith(("'", '"')):
+        aspa, i = bruto[0], 1
+        while i < len(bruto):
+            if aspa == '"' and bruto[i] == "\\":
+                i += 2
+                continue
+            if bruto[i] == aspa:
+                if aspa == "'" and bruto[i + 1:i + 2] == "'":
+                    i += 2
+                    continue
+                break
+            i += 1
+        else:
+            return valor  # sem a aspa que fecha: fica como o parser leu
+        if re.fullmatch(r"\s+#.*", bruto[i + 1:]):
+            return bruto[1:i]
         return valor
     limpo = "" if valor.startswith("#") else re.sub(r"\s+#.*$", "", valor)
     return None if limpo in ("", "null", "~") else limpo

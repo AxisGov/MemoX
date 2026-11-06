@@ -312,6 +312,15 @@ class MemoxRegressoesTest(unittest.TestCase):
             # entre aspas, `#` e parte do valor: "OC-1 # nota" nao e OC-1
             ("regressao_de: \"OC-1 # nota\"\nevidencia_regressao: \"commit abc\"\n",
              "atribui a regressao a OC-1 # nota"),
+            # o comentario DEPOIS da aspa que fecha sai (CodeRabbit no MemoX#6)
+            ("regressao_de: \"OC-1\" # commit abc\nevidencia_regressao: \"commit abc\"\n", None),
+            ("regressao_de: 'OC-1' # commit abc\nevidencia_regressao: \"commit abc\"\n", None),
+            # a aspa escapada nao fecha: o valor e OC-\"1 #, e nao OC-
+            ("regressao_de: \"OC-\\\"1 # x\" # nota\nevidencia_regressao: \"commit abc\"\n",
+             "atribui a regressao a OC-\\\"1 # x"),
+            # sem espaco antes do `#`, nao e comentario
+            ("regressao_de: \"OC-1\"#nota\nevidencia_regressao: \"commit abc\"\n",
+             "atribui a regressao a \"OC-1\"#nota"),
         ]
         for linha, motivo in casos:
             with self.subTest(linha=linha), TemporaryDirectory() as tmp:
