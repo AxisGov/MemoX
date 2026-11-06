@@ -35,7 +35,9 @@ import tempfile
 import time
 import unicodedata
 
-VERSAO_INDICE = 1
+# 2: a regressao le a declaracao da causa raiz (DM-29); o indice da versao
+# anterior nao e carregado, e sim reconstruido
+VERSAO_INDICE = 2
 
 # ---------------------------------------------------------------------------
 # configuracao
@@ -601,6 +603,9 @@ def coletar(raiz, cfg):
                 "causa": None,
                 "modo": None,
                 "comprovada": None,
+                "regressao_declarada": False,
+                "regressao_de": None,
+                "evidencia_regressao": None,
                 "risco_residual": None,
                 "decisoes": [],
                 "lacunas": [],
@@ -691,6 +696,14 @@ def coletar(raiz, cfg):
             continue
         reg["modo"] = fm.get("modo")
         reg["comprovada"] = fm.get("comprovada")
+        # DM-29: a runx declara a regressao aqui. A chave ausente e artefato
+        # anterior ao campo; `null` nega a regressao.
+        reg["regressao_declarada"] = "regressao_de" in fm
+        reg["regressao_de"] = fm.get("regressao_de")
+        reg["evidencia_regressao"] = fm.get("evidencia_regressao")
+        estado, motivo = declaracao_de_regressao(reg)
+        if estado == "invalida":
+            avisos.append({"artefato": rel, "motivo": motivo})
         reg["ferramenta"] = reg["ferramenta"] or fm.get("expx_tool") or "runx"
         reg["arquivos_impactados"] = sorted(
             set(reg["arquivos_impactados"]) | set(_lista(fm.get("arquivos_impactados")))
@@ -950,13 +963,34 @@ def _data_ord(valor):
     return valor if isinstance(valor, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", valor) else ""
 
 
+def declaracao_de_regressao(reg):
+    """O que a causa raiz de B declara sobre regressao (DM-29): (estado, valor).
+
+    "ausente": artefato anterior ao campo, vale a regra das tres condicoes;
+    "negada": `regressao_de: null`; "nomeada": o trabalho_id declarado, com
+    `evidencia_regressao`; "invalida": o motivo, e nunca afirma regressao.
+    """
+    if not reg.get("regressao_declarada"):
+        return "ausente", None
+    de = reg.get("regressao_de")
+    if de is None or de == "":
+        return "negada", None
+    if not isinstance(de, str) or de != de.strip():
+        return "invalida", "regressao_de invalido"
+    evidencia = reg.get("evidencia_regressao")
+    if not isinstance(evidencia, str) or not evidencia.strip():
+        return "invalida", "regressao_de sem evidencia_regressao"
+    return "nomeada", de
+
+
 def detectar_regressoes(trabalhos):
     """Regra 4: regressao exige evidencia causal, nunca coincidencia de arquivo.
 
     Um trabalho POSTERIOR B e regressao de A quando a causa raiz de B aponta
     (arquivos_impactados) para um arquivo que A ALTEROU (arquivos_alterados),
     e a data de A e estritamente anterior a de B. Sem as duas datas, ou sem
-    causa raiz em B, o vinculo e registrado como coincidencia de arquivo.
+    causa raiz em B, o vinculo e registrado como coincidencia de arquivo. A
+    causa raiz que declara `regressao_de` decide entre os A possiveis (DM-29).
     """
     regressoes, coincidencias = [], []
     lista = list(trabalhos.values())
@@ -966,6 +1000,7 @@ def detectar_regressoes(trabalhos):
             continue
         data_b = _data_ord(b.get("data"))
         tem_causa = bool(b.get("modo") == "causa_raiz")
+        estado, declarado = declaracao_de_regressao(b)
         for a in lista:
             if a["trabalho_id"] == b["trabalho_id"]:
                 continue
@@ -976,8 +1011,16 @@ def detectar_regressoes(trabalhos):
             data_a = _data_ord(a.get("data"))
             anterior = bool(data_a and data_b and data_a < data_b)
             comprovada = b.get("comprovada") is True
-            if anterior and tem_causa and comprovada:
-                regressoes.append({
+            if estado == "negada":
+                negada = "a causa raiz nega a regressao (regressao_de: null)"
+            elif estado == "invalida":
+                negada = declarado
+            elif estado == "nomeada" and declarado != a["trabalho_id"]:
+                negada = "a causa raiz atribui a regressao a %s" % declarado
+            else:
+                negada = None
+            if anterior and tem_causa and comprovada and not negada:
+                item = {
                     "arquivos": comuns,
                     "trabalho_anterior": a["trabalho_id"],
                     "data_anterior": a.get("data"),
@@ -995,7 +1038,10 @@ def detectar_regressoes(trabalhos):
                         (f for f in a.get("fontes", []) if f.endswith("tecnico.md")),
                         next((f for f in a.get("fontes", []) if f.endswith("FECHAMENTO.md")), None),
                     ),
-                })
+                }
+                if estado == "nomeada":
+                    item["evidencia_declarada"] = b.get("evidencia_regressao")
+                regressoes.append(item)
             else:
                 motivo = []
                 if not anterior:
@@ -1004,11 +1050,18 @@ def detectar_regressoes(trabalhos):
                     motivo.append("trabalho posterior sem causa raiz (modo analise de impacto)")
                 elif not comprovada:
                     motivo.append("causa raiz nao comprovada")
+                if negada:
+                    motivo.append(negada)
                 coincidencias.append({
                     "arquivos": comuns,
                     "trabalhos": sorted([a["trabalho_id"], b["trabalho_id"]]),
                     "motivo": "; ".join(motivo) or "evidencia causal ausente",
                 })
+    # o par promovido nao volta como coincidencia, em nenhuma direcao: as duas
+    # listas sao disjuntas
+    promovidos = {tuple(sorted([r["trabalho_anterior"], r["trabalho_posterior"]]))
+                  for r in regressoes}
+    coincidencias = [c for c in coincidencias if tuple(c["trabalhos"]) not in promovidos]
     # deduplica coincidencias simetricas
     vistas, unicas = set(), []
     for c in coincidencias:
@@ -1294,9 +1347,13 @@ def carregar_indice(raiz):
         return None
     try:
         with open(caminho, encoding="utf-8") as fh:
-            return json.load(fh)
+            indice = json.load(fh)
     except (ValueError, OSError):
         return None
+    # indice de outra versao foi montado com outra regra: nao vale
+    if not isinstance(indice, dict) or indice.get("versao") != VERSAO_INDICE:
+        return None
+    return indice
 
 
 # ---------------------------------------------------------------------------

@@ -16,7 +16,7 @@ python3 .claude/skills/memox/assets/memox.py arquivo "<caminho>" --formato json
 
 | Sinal | Efeito na investigação |
 |---|---|
-| regressão registrada apontando para este arquivo | **verifique se a ocorrência atual é outra recaída do mesmo ponto**; o artefato do trabalho anterior é leitura obrigatória |
+| regressão registrada apontando para este arquivo | **verifique se a ocorrência atual é outra recaída do mesmo ponto**; o artefato do trabalho anterior é leitura obrigatória. O memox só registra a regressão que a causa raiz não negou: o `regressao_de` que esta ocorrência gravar no `01-CAUSA-RAIZ.md` (`null` para coincidência) decide o sinal dela (DM-29) |
 | trabalho anterior com causa raiz no mesmo arquivo | a causa anterior é hipótese de partida — a ser comprovada como qualquer outra, nunca copiada |
 | reprovação em QA no arquivo | o ponto que reprovou entra na reprodução |
 | decisão registrada sobre o módulo | confira se a correção pretendida não reverte uma decisão consciente |

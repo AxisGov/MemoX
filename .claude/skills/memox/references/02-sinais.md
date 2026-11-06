@@ -30,13 +30,20 @@ Um sinal ausente é ausência de evidência, não evidência de ausência. Arqui
 
 Também é o único sinal que pode **acusar alguém injustamente**. Por isso a regra é dura, e o padrão é não afirmar.
 
-### As três condições
+### As condições
 
-Um trabalho **B** é registrado como regressão de um trabalho **A** quando, e somente quando, as três valem ao mesmo tempo:
+Um trabalho **B** é registrado como regressão de um trabalho **A** quando, e somente quando, as quatro valem ao mesmo tempo:
 
 1. **Vínculo por arquivo** — existe pelo menos um caminho em `arquivos_impactados` de B (a causa raiz de B) que também está em `arquivos_alterados` de A (o relatório técnico de A). A direção importa: o arquivo que B aponta como causa é o arquivo que A mudou.
 2. **Ordem cronológica** — a data de A é estritamente anterior à data de B, e **as duas datas existem**. Sem uma das datas, não há ordem estabelecida, e sem ordem não há causa.
 3. **Causa comprovada** — B tem `modo: causa_raiz` **e** `comprovada: true`. Um trabalho em `modo: analise_impacto` não tem causa a apontar: `arquivos_impactados` ali significa "vou mexer aqui", não "o defeito está aqui". Uma causa `comprovada: false` é hipótese, não prova.
+4. **Declaração da causa raiz** (DM-29) — o `01-CAUSA-RAIZ.md` de B não nega o vínculo com A. A `runx` registra ali `regressao_de` (o `trabalho_id` anterior que introduziu o defeito) e `evidencia_regressao`, e deixa `regressao_de: null` quando o histórico mostrou só coincidência de arquivo (regra 15 da `runx`):
+   - `regressao_de: null` (ou vazio) nega a regressão, contra qualquer A;
+   - `regressao_de` preenchido, com `evidencia_regressao` em texto, vale só contra o A nomeado, comparado exatamente ao `trabalho_id`. O item ganha `evidencia_declarada`;
+   - `regressao_de` de outro tipo, com espaço nas bordas, ou sem `evidencia_regressao`, não afirma regressão e vai também para `fora_do_indice`;
+   - a causa raiz sem a chave `regressao_de` (artefato anterior ao campo) fica com as três primeiras condições.
+
+   A declaração nunca dispensa as outras três: sem o arquivo em comum, não há sinal de arquivo a dar.
 
 Faltando qualquer uma, o vínculo é registrado como **coincidência de arquivo**, em `coincidencias_arquivo`, com o motivo explícito de por que não foi promovido a regressão.
 
@@ -71,6 +78,9 @@ Na dúvida, **não afirma regressão**: registra como coincidência de arquivo. 
 |---|---|---|
 | B aponta o arquivo, mas B é `analise_impacto` | coincidência, motivo "trabalho posterior sem causa raiz" | em análise de impacto, `arquivos_impactados` é escopo, não diagnóstico |
 | B tem `modo: causa_raiz` e `comprovada: false` | coincidência, motivo "causa raiz não comprovada" | hipótese não é prova; a própria `runx` não deixaria isso virar plano |
+| A causa raiz de B traz `regressao_de: null` | coincidência, motivo "a causa raiz nega a regressão" | quem investigou já olhou o histórico e concluiu que não há vínculo causal |
+| A causa raiz de B nomeia outro trabalho em `regressao_de` | coincidência com A, motivo "a causa raiz atribui a regressão a X" | a regressão é de X; A só tocou o mesmo arquivo |
+| `regressao_de` inválido ou sem `evidencia_regressao` | coincidência, e o artefato vai a `fora_do_indice` | declaração que não segue o contrato da `runx` não sustenta acusação |
 | Uma das datas ausente | coincidência, motivo "ordem cronológica não estabelecida" | sem ordem, "posterior" não significa nada |
 | Mesma data em A e B | coincidência | o critério é *estritamente* anterior; no mesmo dia não há como saber a ordem |
 | A e B são o mesmo trabalho | ignorado | um trabalho não regride a si mesmo |
@@ -87,7 +97,7 @@ Ao apresentar uma coincidência, use a palavra **coincidência**, e diga o motiv
 
 ## Critério de saída
 
-- [ ] Todo item de `regressoes` satisfaz as três condições.
+- [ ] Todo item de `regressoes` satisfaz as quatro condições.
 - [ ] Todo item de `regressoes` tem `origem_causa` e `origem_alteracao`.
 - [ ] Todo item de `coincidencias_arquivo` tem `motivo` preenchido.
 - [ ] Nenhum par aparece nas duas listas.
@@ -97,7 +107,7 @@ Ao apresentar uma coincidência, use a palavra **coincidência**, e diga o motiv
 
 | Sintoma | Causa provável | O que fazer |
 |---|---|---|
-| Nenhuma regressão detectada num projeto que claramente teve | causas raiz sem `arquivos_impactados`, ou relatórios sem `arquivos_alterados` | confira os artefatos; sem os dois campos o cruzamento é impossível. **Não relaxe as três condições para "achar" regressões** |
+| Nenhuma regressão detectada num projeto que claramente teve | causas raiz sem `arquivos_impactados`, ou relatórios sem `arquivos_alterados` | confira os artefatos; sem os dois campos o cruzamento é impossível. **Não relaxe as condições para "achar" regressões** |
 | Muitas coincidências e nenhuma regressão | predominância de `analise_impacto` | é o esperado num projeto de melhorias; regressão pressupõe bug com causa comprovada |
 | Uma regressão parece errada | as datas dos artefatos não refletem a ordem real dos fatos | corrija a data **no artefato** e reconstrua. O índice reflete o artefato; artefato errado se corrige no artefato (regra 9) |
 | Explosão de pares em arquivo muito tocado | arquivo central tocado por dezenas de trabalhos | esperado; o controle de ruído da etapa 3 é quem resolve na hora de exibir |

@@ -51,7 +51,7 @@ Conteúdo a escrever:
   1. **`coincidencias_arquivo` NÃO é sinal de regressão** e não entra no cálculo. Ela existe no índice para auditoria humana. Tratá-la como regressão infla o raio de todo arquivo central do sistema e destrói o valor do sinal. Se a `legadox` quiser usá-la, que seja como sinal próprio, com nome e peso próprios, **nunca somada às regressões**.
   2. **Ausência de sinal não reduz raio.** Arquivo sem histórico é arquivo sem informação, não arquivo seguro — um arquivo novo não tem histórico e nem por isso é seguro. O memox só acrescenta motivo para olhar mais; nunca subtrai.
 
-- O campo `regressoes` já vem filtrado pelas três condições (vínculo por arquivo, ordem cronológica, causa comprovada). É evidência causal, não coincidência: pode ser consumido diretamente.
+- O campo `regressoes` já vem filtrado pelas quatro condições (vínculo por arquivo, ordem cronológica, causa comprovada e a declaração `regressao_de` da causa raiz). É evidência causal, não coincidência: pode ser consumido diretamente.
 
 ### 2.2 — O relatório de raio
 

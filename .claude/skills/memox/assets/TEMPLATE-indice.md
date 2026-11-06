@@ -8,7 +8,7 @@ Um exemplo preenchido, gerado a partir de artefatos reais, está em `exemplos/in
 
 ```json
 {
-  "versao": 1,
+  "versao": 2,
   "gerado_em": "{{AAAA-MM-DD}}",
   "gerado_em_epoch": {{epoch}},
   "duracao_ms": {{N}},
@@ -37,6 +37,9 @@ Um exemplo preenchido, gerado a partir de artefatos reais, está em `exemplos/in
       "causa": "{{causa em uma linha}}",
       "modo": "{{causa_raiz|analise_impacto}}",
       "comprovada": {{true|false|null}},
+      "regressao_declarada": {{true quando o 01-CAUSA-RAIZ.md traz a chave regressao_de|false}},
+      "regressao_de": "{{ID do trabalho que a causa raiz declara|null}}",
+      "evidencia_regressao": "{{a evidencia declarada pela runx|null}}",
       "risco_residual": "{{risco residual em uma linha}}",
       "decisoes": [
         {
@@ -118,7 +121,8 @@ Um exemplo preenchido, gerado a partir de artefatos reais, está em `exemplos/in
       "data_posterior": "{{AAAA-MM-DD}}",
       "evidencia": "{{a frase que descreve o vinculo}}",
       "origem_causa": "{{caminho do 01-CAUSA-RAIZ.md do posterior}}",
-      "origem_alteracao": "{{caminho do tecnico.md do anterior, ou do FECHAMENTO.md quando veio da sprintx}}"
+      "origem_alteracao": "{{caminho do tecnico.md do anterior, ou do FECHAMENTO.md quando veio da sprintx}}",
+      "evidencia_declarada": "{{evidencia_regressao da causa raiz; so quando ela nomeia o anterior em regressao_de}}"
     }
   ],
 
@@ -148,7 +152,7 @@ Valem para todo índice gerado. Um índice que viole qualquer uma está errado:
 
 1. **Toda entrada aponta para um artefato real**, com caminho e data (regra 1). Sem `artefato`/`origem`, a entrada não deveria existir.
 2. **Todo caminho é relativo à raiz do projeto.** Caminho absoluto é violação da regra transversal.
-3. **`regressoes` e `coincidencias_arquivo` são disjuntos.** Um par está em uma ou em outra, nunca nas duas.
+3. **`regressoes` e `coincidencias_arquivo` são disjuntos.** Um par está em uma ou em outra, nunca nas duas. O par de trabalhos promovido a regressão não volta como coincidência, em nenhuma direção.
 4. **Todo item de `regressoes` tem `origem_causa` e `origem_alteracao`** — sem os dois, é acusação sem prova.
 5. **Todo item de `coincidencias_arquivo` tem `motivo`** dizendo por que não é regressão.
 6. **Nenhum segredo literal.** Trecho detectado vira `[redigido pelo memox]` e o caminho vai para `artefatos_contaminados` (regra 7).

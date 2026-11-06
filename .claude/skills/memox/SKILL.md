@@ -56,7 +56,7 @@ Além de listar, o índice calcula por arquivo e por módulo:
 - **quantidade de trabalhos** que o tocaram;
 - **data do trabalho mais recente**;
 - **quantas vezes foi reprovado em QA**;
-- **se já causou regressão** — existe trabalho posterior cuja causa raiz aponta para um arquivo alterado por trabalho anterior;
+- **se já causou regressão** — existe trabalho posterior cuja causa raiz comprovada aponta para um arquivo alterado por trabalho anterior, sem negar o vínculo em `regressao_de` (DM-29);
 - **se está em zona de risco** declarada no `PERFIL.md`;
 - **se tem dívida** registrada no `DIVIDA.md`;
 - **faixa de atenção mais frequente** nas entregas.
@@ -65,7 +65,7 @@ Além de listar, o índice calcula por arquivo e por módulo:
 
 É o mais valioso e o mais fácil de perder: é o que identifica o arquivo que **"sempre volta"**. Ele alimenta o cálculo de raio da `legadox`, que hoje não tem essa informação.
 
-Regra dura: **regressão exige evidência causal, não coincidência de arquivo.** Dois trabalhos tocando o mesmo arquivo é um fato; dizer que um causou o outro exige que a causa raiz do segundo aponte para um arquivo alterado pelo primeiro, com o segundo posterior ao primeiro. Na dúvida, o índice registra `coincidencia_arquivo`, nunca `regressao`. O detalhe operacional está em `references/02-sinais.md`.
+Regra dura: **regressão exige evidência causal, não coincidência de arquivo.** Dois trabalhos tocando o mesmo arquivo é um fato; dizer que um causou o outro exige que a causa raiz do segundo aponte para um arquivo alterado pelo primeiro, com o segundo posterior ao primeiro, e que a causa raiz não negue o vínculo: `regressao_de: null` nega, e `regressao_de` preenchido, com `evidencia_regressao`, só vale contra o trabalho nomeado. Na dúvida, o índice registra `coincidencia_arquivo`, nunca `regressao`. O detalhe operacional está em `references/02-sinais.md`.
 
 ## Controle de ruído
 
