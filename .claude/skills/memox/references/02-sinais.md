@@ -42,6 +42,8 @@ Um trabalho **B** é registrado como regressão de um trabalho **A** quando, e s
    - `regressao_de` preenchido, com `evidencia_regressao` em texto, vale só contra o A nomeado, comparado exatamente ao `trabalho_id`. O item ganha `evidencia_declarada`;
    - `regressao_de` de outro tipo, com espaço nas bordas, ou sem `evidencia_regressao`, não afirma regressão e vai também para `fora_do_indice`;
    - a causa raiz sem a chave `regressao_de` (artefato anterior ao campo) fica com as três primeiras condições.
+   - com duas causas raiz do mesmo trabalho, a sem a chave não desfaz a declaração da outra, e duas declarações diferentes não afirmam regressão (vão a `fora_do_indice`);
+   - o comentário YAML no fim do valor (`regressao_de: OC-1 # nota`) fica de fora, porque o parser só tira o de linha inteira.
 
    A declaração nunca dispensa as outras três: sem o arquivo em comum, não há sinal de arquivo a dar.
 

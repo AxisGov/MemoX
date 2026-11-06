@@ -33,6 +33,7 @@
       "modo": "causa_raiz",
       "comprovada": true,
       "regressao_declarada": true,
+      "regressao_divergente": false,
       "regressao_de": null,
       "evidencia_regressao": null,
       "risco_residual": "O arredondamento do valor final continua usando floor.",
@@ -76,6 +77,7 @@
       "modo": "analise_impacto",
       "comprovada": null,
       "regressao_declarada": true,
+      "regressao_divergente": false,
       "regressao_de": null,
       "evidencia_regressao": null,
       "risco_residual": null,
@@ -108,6 +110,7 @@
       "modo": null,
       "comprovada": null,
       "regressao_declarada": false,
+      "regressao_divergente": false,
       "regressao_de": null,
       "evidencia_regressao": null,
       "risco_residual": null,
@@ -141,6 +144,7 @@
       "modo": "causa_raiz",
       "comprovada": true,
       "regressao_declarada": true,
+      "regressao_divergente": false,
       "regressao_de": "OC-2026-0100",
       "evidencia_regressao": "o OC-2026-0100 trocou o arredondamento de calculo.ts para a faixa de peso; a regra nova arredonda antes de somar o adicional",
       "risco_residual": "A faixa exata de 50kg depende do mesmo caminho de codigo.",
@@ -202,6 +206,7 @@
       "modo": null,
       "comprovada": null,
       "regressao_declarada": false,
+      "regressao_divergente": false,
       "regressao_de": null,
       "evidencia_regressao": null,
       "risco_residual": null,
@@ -238,6 +243,7 @@
       "modo": null,
       "comprovada": null,
       "regressao_declarada": false,
+      "regressao_divergente": false,
       "regressao_de": null,
       "evidencia_regressao": null,
       "risco_residual": null,
@@ -741,7 +747,7 @@
         "OC-2026-0100",
         "OC-2026-0150"
       ],
-      "motivo": "trabalho posterior sem causa raiz (modo analise de impacto)"
+      "motivo": "trabalho posterior sem causa raiz (modo analise de impacto); a causa raiz nega a regressao (regressao_de: null)"
     },
     {
       "arquivos": [
@@ -751,7 +757,7 @@
         "OC-2026-0142",
         "OC-2026-0150"
       ],
-      "motivo": "ordem cronologica nao estabelecida; trabalho posterior sem causa raiz (modo analise de impacto)"
+      "motivo": "ordem cronologica nao estabelecida; trabalho posterior sem causa raiz (modo analise de impacto); a causa raiz nega a regressao (regressao_de: null)"
     }
   ],
   "linha_do_tempo": [

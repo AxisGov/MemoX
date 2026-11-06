@@ -38,8 +38,9 @@ Um exemplo preenchido, gerado a partir de artefatos reais, está em `exemplos/in
       "modo": "{{causa_raiz|analise_impacto}}",
       "comprovada": {{true|false|null}},
       "regressao_declarada": {{true quando o 01-CAUSA-RAIZ.md traz a chave regressao_de|false}},
-      "regressao_de": "{{ID do trabalho que a causa raiz declara|null}}",
-      "evidencia_regressao": "{{a evidencia declarada pela runx|null}}",
+      "regressao_divergente": {{true quando duas causas raiz do trabalho declaram regressao_de diferente|false}},
+      "regressao_de": {{"ID do trabalho que a causa raiz declara"|null}},
+      "evidencia_regressao": {{"a evidencia declarada pela runx"|null}},
       "risco_residual": "{{risco residual em uma linha}}",
       "decisoes": [
         {

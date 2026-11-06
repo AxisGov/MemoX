@@ -604,6 +604,7 @@ def coletar(raiz, cfg):
                 "modo": None,
                 "comprovada": None,
                 "regressao_declarada": False,
+                "regressao_divergente": False,
                 "regressao_de": None,
                 "evidencia_regressao": None,
                 "risco_residual": None,
@@ -697,13 +698,23 @@ def coletar(raiz, cfg):
         reg["modo"] = fm.get("modo")
         reg["comprovada"] = fm.get("comprovada")
         # DM-29: a runx declara a regressao aqui. A chave ausente e artefato
-        # anterior ao campo; `null` nega a regressao.
-        reg["regressao_declarada"] = "regressao_de" in fm
-        reg["regressao_de"] = fm.get("regressao_de")
-        reg["evidencia_regressao"] = fm.get("evidencia_regressao")
-        estado, motivo = declaracao_de_regressao(reg)
-        if estado == "invalida":
-            avisos.append({"artefato": rel, "motivo": motivo})
+        # anterior ao campo; `null` nega a regressao. Com duas causas raiz do
+        # mesmo trabalho, a sem a chave nao desfaz a declaracao da outra, e duas
+        # declaracoes diferentes nao afirmam regressao nenhuma.
+        if "regressao_de" in fm:
+            de = _sem_comentario(fm.get("regressao_de"), _bruto_no_frontmatter(texto, "regressao_de"))
+            evidencia = fm.get("evidencia_regressao")
+            if reg["regressao_declarada"] and reg["regressao_de"] != de:
+                reg["regressao_divergente"] = True
+            reg["regressao_declarada"] = True
+            reg["regressao_de"] = de
+            # o mesmo trabalho declarado: fica a primeira evidencia em texto
+            atual = reg["evidencia_regressao"]
+            if not (isinstance(atual, str) and atual.strip()):
+                reg["evidencia_regressao"] = evidencia
+            estado, motivo = declaracao_de_regressao(reg)
+            if estado == "invalida":
+                avisos.append({"artefato": rel, "motivo": motivo})
         reg["ferramenta"] = reg["ferramenta"] or fm.get("expx_tool") or "runx"
         reg["arquivos_impactados"] = sorted(
             set(reg["arquivos_impactados"]) | set(_lista(fm.get("arquivos_impactados")))
@@ -963,6 +974,35 @@ def _data_ord(valor):
     return valor if isinstance(valor, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", valor) else ""
 
 
+def _bruto_no_frontmatter(texto, chave):
+    """O valor cru da chave de topo no frontmatter, antes do parser (ou None)."""
+    linhas = texto.split("\n")
+    if not linhas or linhas[0].strip() != "---":
+        return None
+    for linha in linhas[1:]:
+        if linha.strip() == "---":
+            return None
+        if linha.startswith(chave + ":"):
+            return linha[len(chave) + 1:].strip()
+    return None
+
+
+def _sem_comentario(valor, bruto):
+    """O `regressao_de` sem o comentario YAML do fim (`OC-1 # nota`).
+
+    O parser so tira o comentario de linha inteira. So o valor sem aspas no
+    texto cru (`bruto`) tem comentario: entre aspas, `#` e parte do valor. Um
+    trabalho_id nunca tem ` #`, e o que sobra vazio, `null` ou `~` e nulo, como
+    no escalar. O espaco nas bordas do que sobra fica, e continua invalido.
+    """
+    if not isinstance(valor, str) or not re.search(r"(^|\s)#", valor):
+        return valor
+    if bruto is None or bruto.startswith(("'", '"')):
+        return valor
+    limpo = "" if valor.startswith("#") else re.sub(r"\s+#.*$", "", valor)
+    return None if limpo in ("", "null", "~") else limpo
+
+
 def declaracao_de_regressao(reg):
     """O que a causa raiz de B declara sobre regressao (DM-29): (estado, valor).
 
@@ -972,6 +1012,8 @@ def declaracao_de_regressao(reg):
     """
     if not reg.get("regressao_declarada"):
         return "ausente", None
+    if reg.get("regressao_divergente"):
+        return "invalida", "regressao_de divergente entre causas raiz do trabalho"
     de = reg.get("regressao_de")
     if de is None or de == "":
         return "negada", None

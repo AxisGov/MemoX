@@ -271,6 +271,56 @@ class MemoxRegressoesTest(unittest.TestCase):
             self.assertEqual(avisos, [{"artefato": "docs/manutencao/OC-2/01-CAUSA-RAIZ.md",
                                        "motivo": "regressao_de invalido"}])
 
+    def test_segunda_causa_raiz_do_trabalho_nao_desfaz_a_declaracao(self):
+        # CodeAnt no MemoX#6: a causa raiz sem a chave, lida antes ou depois, nao
+        # desfaz o `null` da outra; duas declaracoes diferentes nao afirmam nada
+        legado = ("---\ntrabalho_id: OC-2\nmodo: causa_raiz\ncomprovada: true\n"
+                  "arquivos_impactados: [src/x.ts]\n---\n")
+        nomeia = legado.replace("---\n", "---\nregressao_de: OC-1\nevidencia_regressao: \"commit abc\"\n", 1)
+        for pasta in ("AAA", "ZZZ"):
+            with self.subTest(pasta=pasta), TemporaryDirectory() as tmp:
+                raiz = Path(tmp)
+                escrever(raiz / "docs" / "manutencao" / pasta / "01-CAUSA-RAIZ.md", legado)
+                indice = self._indice_com_declaracao(raiz, "regressao_de: null\n")
+                self.assertEqual(indice["regressoes"], [])
+                self.assertEqual(indice["trabalhos"]["OC-2"]["regressao_de"], None)
+            with self.subTest(pasta=pasta, divergente=True), TemporaryDirectory() as tmp:
+                raiz = Path(tmp)
+                escrever(raiz / "docs" / "manutencao" / pasta / "01-CAUSA-RAIZ.md", nomeia)
+                indice = self._indice_com_declaracao(raiz, "regressao_de: null\n")
+                self.assertEqual(indice["regressoes"], [])
+                motivos = [f["motivo"] for f in indice["fora_do_indice"]]
+                self.assertIn("regressao_de divergente entre causas raiz do trabalho", motivos)
+            # o mesmo trabalho nas duas, com evidencias diferentes (ou uma sem):
+            # nao e divergencia, e a regressao fica
+            for outra in ("\"commit xyz\"", "null"):
+                with self.subTest(pasta=pasta, evidencia=outra), TemporaryDirectory() as tmp:
+                    raiz = Path(tmp)
+                    escrever(raiz / "docs" / "manutencao" / pasta / "01-CAUSA-RAIZ.md",
+                             nomeia.replace("\"commit abc\"", outra))
+                    indice = self._indice_com_declaracao(
+                        raiz, "regressao_de: OC-1\nevidencia_regressao: \"commit abc\"\n")
+                    self.assertEqual([(r["trabalho_anterior"], r["trabalho_posterior"])
+                                      for r in indice["regressoes"]], [("OC-1", "OC-2")])
+
+    def test_comentario_yaml_no_regressao_de_fica_de_fora(self):
+        # CodeRabbit no MemoX#6: o parser so tira o comentario de linha inteira
+        casos = [
+            ("regressao_de: OC-1 # o commit do OC-1\nevidencia_regressao: \"commit abc\"\n", None),
+            ("regressao_de: null # so coincidencia\n", "nega a regressao"),
+            ("regressao_de: # sem vinculo\n", "nega a regressao"),
+            # entre aspas, `#` e parte do valor: "OC-1 # nota" nao e OC-1
+            ("regressao_de: \"OC-1 # nota\"\nevidencia_regressao: \"commit abc\"\n",
+             "atribui a regressao a OC-1 # nota"),
+        ]
+        for linha, motivo in casos:
+            with self.subTest(linha=linha), TemporaryDirectory() as tmp:
+                indice = self._indice_com_declaracao(Path(tmp), linha)
+                self.assertEqual(bool(indice["regressoes"]), motivo is None)
+                if motivo:
+                    motivos = [c["motivo"] for c in indice["coincidencias_arquivo"]]
+                    self.assertTrue(any(motivo in m for m in motivos), motivos)
+
     def test_indice_de_versao_anterior_nao_e_carregado(self):
         # o indice gravado pela regra antiga traria a regressao negada
         with TemporaryDirectory() as tmp:
