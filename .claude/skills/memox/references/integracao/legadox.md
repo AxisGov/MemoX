@@ -31,7 +31,7 @@ Os dois sinais são **entrada do cálculo de raio**, ao lado dos sinais estrutur
 
 Duas propriedades que o consumidor precisa respeitar:
 
-1. **`regressoes` já vem filtrado pelas três condições** da etapa 2 — vínculo por arquivo, ordem cronológica e causa comprovada. É evidência causal, não coincidência.
+1. **`regressoes` já vem filtrado pelas quatro condições** da etapa 2 — vínculo por arquivo, ordem cronológica, causa comprovada e a declaração da causa raiz (`regressao_de`, DM-29). É evidência causal, não coincidência.
 2. **`coincidencias_arquivo` NÃO é sinal de regressão.** Está no índice para ser auditável por um humano, não para entrar no cálculo. Tratá-la como regressão infla o raio de todo arquivo central do sistema e destrói o valor do sinal (regra 4).
 
 Se a `legadox` quiser usar coincidências, que seja como sinal próprio, com nome próprio e peso próprio — nunca somado às regressões.

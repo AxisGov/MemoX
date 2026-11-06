@@ -1,5 +1,5 @@
 {
-  "versao": 1,
+  "versao": 2,
   "gerado_em": "2026-08-29",
   "duracao_ms": 5,
   "raiz": ".",
@@ -32,6 +32,10 @@
       "causa": "A faixa de peso tinha o limite superior exclusivo onde deveria ser inclusivo.",
       "modo": "causa_raiz",
       "comprovada": true,
+      "regressao_declarada": true,
+      "regressao_divergente": false,
+      "regressao_de": null,
+      "evidencia_regressao": null,
       "risco_residual": "O arredondamento do valor final continua usando floor.",
       "decisoes": [
         {
@@ -72,6 +76,10 @@
       "causa": "Troca do rotulo exibido ao lado do valor de frete.",
       "modo": "analise_impacto",
       "comprovada": null,
+      "regressao_declarada": true,
+      "regressao_divergente": false,
+      "regressao_de": null,
+      "evidencia_regressao": null,
       "risco_residual": null,
       "decisoes": [],
       "lacunas": [],
@@ -101,6 +109,10 @@
       "causa": "A chave usada em homologacao era [redigido pelo memox] e estava hardcoded.",
       "modo": null,
       "comprovada": null,
+      "regressao_declarada": false,
+      "regressao_divergente": false,
+      "regressao_de": null,
+      "evidencia_regressao": null,
       "risco_residual": null,
       "decisoes": [],
       "lacunas": [],
@@ -131,6 +143,10 @@
       "causa": "O arredondamento acima de 50kg usava floor onde deveria usar round meio-para-cima.",
       "modo": "causa_raiz",
       "comprovada": true,
+      "regressao_declarada": true,
+      "regressao_divergente": false,
+      "regressao_de": "OC-2026-0100",
+      "evidencia_regressao": "o OC-2026-0100 trocou o arredondamento de calculo.ts para a faixa de peso; a regra nova arredonda antes de somar o adicional",
       "risco_residual": "A faixa exata de 50kg depende do mesmo caminho de codigo.",
       "decisoes": [
         {
@@ -189,6 +205,10 @@
       "causa": null,
       "modo": null,
       "comprovada": null,
+      "regressao_declarada": false,
+      "regressao_divergente": false,
+      "regressao_de": null,
+      "evidencia_regressao": null,
       "risco_residual": null,
       "decisoes": [
         {
@@ -222,6 +242,10 @@
       "causa": null,
       "modo": null,
       "comprovada": null,
+      "regressao_declarada": false,
+      "regressao_divergente": false,
+      "regressao_de": null,
+      "evidencia_regressao": null,
       "risco_residual": null,
       "decisoes": [],
       "lacunas": [
@@ -593,7 +617,8 @@
             "data_posterior": "2026-08-29",
             "evidencia": "causa raiz comprovada de OC-2026-0142 aponta para arquivo alterado por OC-2026-0100",
             "origem_causa": "docs/manutencao/OC-2026-0142-arredondamento/01-CAUSA-RAIZ.md",
-            "origem_alteracao": "docs/relatorios/2026-05-10-OC-2026-0100-faixa-peso/tecnico.md"
+            "origem_alteracao": "docs/relatorios/2026-05-10-OC-2026-0100-faixa-peso/tecnico.md",
+            "evidencia_declarada": "o OC-2026-0100 trocou o arredondamento de calculo.ts para a faixa de peso; a regra nova arredonda antes de somar o adicional"
           }
         ],
         "zona_de_risco": {
@@ -654,7 +679,8 @@
             "data_posterior": "2026-08-29",
             "evidencia": "causa raiz comprovada de OC-2026-0142 aponta para arquivo alterado por OC-2026-0100",
             "origem_causa": "docs/manutencao/OC-2026-0142-arredondamento/01-CAUSA-RAIZ.md",
-            "origem_alteracao": "docs/relatorios/2026-05-10-OC-2026-0100-faixa-peso/tecnico.md"
+            "origem_alteracao": "docs/relatorios/2026-05-10-OC-2026-0100-faixa-peso/tecnico.md",
+            "evidencia_declarada": "o OC-2026-0100 trocou o arredondamento de calculo.ts para a faixa de peso; a regra nova arredonda antes de somar o adicional"
           }
         ],
         "arquivos": [
@@ -677,7 +703,8 @@
             "data_posterior": "2026-08-29",
             "evidencia": "causa raiz comprovada de OC-2026-0142 aponta para arquivo alterado por OC-2026-0100",
             "origem_causa": "docs/manutencao/OC-2026-0142-arredondamento/01-CAUSA-RAIZ.md",
-            "origem_alteracao": "docs/relatorios/2026-05-10-OC-2026-0100-faixa-peso/tecnico.md"
+            "origem_alteracao": "docs/relatorios/2026-05-10-OC-2026-0100-faixa-peso/tecnico.md",
+            "evidencia_declarada": "o OC-2026-0100 trocou o arredondamento de calculo.ts para a faixa de peso; a regra nova arredonda antes de somar o adicional"
           }
         ],
         "arquivos": [
@@ -707,7 +734,8 @@
       "data_posterior": "2026-08-29",
       "evidencia": "causa raiz comprovada de OC-2026-0142 aponta para arquivo alterado por OC-2026-0100",
       "origem_causa": "docs/manutencao/OC-2026-0142-arredondamento/01-CAUSA-RAIZ.md",
-      "origem_alteracao": "docs/relatorios/2026-05-10-OC-2026-0100-faixa-peso/tecnico.md"
+      "origem_alteracao": "docs/relatorios/2026-05-10-OC-2026-0100-faixa-peso/tecnico.md",
+      "evidencia_declarada": "o OC-2026-0100 trocou o arredondamento de calculo.ts para a faixa de peso; a regra nova arredonda antes de somar o adicional"
     }
   ],
   "coincidencias_arquivo": [
@@ -719,7 +747,7 @@
         "OC-2026-0100",
         "OC-2026-0150"
       ],
-      "motivo": "trabalho posterior sem causa raiz (modo analise de impacto)"
+      "motivo": "trabalho posterior sem causa raiz (modo analise de impacto); a causa raiz nega a regressao (regressao_de: null)"
     },
     {
       "arquivos": [
@@ -729,7 +757,7 @@
         "OC-2026-0142",
         "OC-2026-0150"
       ],
-      "motivo": "ordem cronologica nao estabelecida; trabalho posterior sem causa raiz (modo analise de impacto)"
+      "motivo": "ordem cronologica nao estabelecida; trabalho posterior sem causa raiz (modo analise de impacto); a causa raiz nega a regressao (regressao_de: null)"
     }
   ],
   "linha_do_tempo": [

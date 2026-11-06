@@ -246,11 +246,12 @@ Além de listar, o índice calcula por arquivo e por módulo: quantos trabalhos 
 
 Dois arquivos com raio estrutural idêntico não têm o mesmo risco se um deles já causou duas regressões e o outro nunca falhou. Essa diferença não está no código; está nos artefatos.
 
-Um trabalho **B** é registrado como regressão de um trabalho **A** apenas quando as três condições valem juntas:
+Um trabalho **B** é registrado como regressão de um trabalho **A** apenas quando as quatro condições valem juntas:
 
 1. um arquivo apontado pela causa raiz de B está entre os arquivos que A alterou;
 2. a data de A é estritamente anterior à de B, e as duas datas existem;
-3. B tem causa raiz **comprovada** — não análise de impacto, não hipótese.
+3. B tem causa raiz **comprovada** — não análise de impacto, não hipótese;
+4. a causa raiz de B não nega o vínculo: `regressao_de: null` nega, e `regressao_de` preenchido, com `evidencia_regressao`, só vale contra o trabalho que ele nomeia. Um `regressao_de` inválido (outro tipo, espaço nas bordas) ou sem evidência não afirma regressão e aparece em "fora do índice". A causa raiz anterior ao campo fica com as três primeiras.
 
 Faltando qualquer uma, o vínculo é registrado como **coincidência de arquivo**, com o motivo explícito. Dois trabalhos tocando o mesmo arquivo é um fato; dizer que um causou o outro é uma afirmação, e afirmação exige evidência. Um arquivo central é tocado por dezenas de trabalhos sem relação causal entre eles — chamar isso de regressão transformaria o sinal mais valioso do índice em ruído.
 

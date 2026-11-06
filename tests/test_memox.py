@@ -123,6 +123,231 @@ class MemoxRegressoesTest(unittest.TestCase):
         self.assertEqual(regressoes[0]["origem_alteracao"],
                          "docs/sprintx/features/pagamento/FECHAMENTO.md")
 
+    def _indice_com_declaracao(self, raiz, declaracao):
+        """OC-1 alterou src/x.ts; a causa raiz comprovada de OC-2 aponta para ele.
+
+        `declaracao` sao as linhas de regressao_de/evidencia_regressao do
+        01-CAUSA-RAIZ.md de OC-2 (vazio: artefato anterior ao campo).
+        """
+        escrever(raiz / "docs" / "relatorios" / "2026-10-01-OC-1" / "tecnico.md",
+                 "---\ntrabalho_id: OC-1\nfechado_em: 2026-10-01\n"
+                 "arquivos_alterados: [src/x.ts]\n---\n")
+        escrever(raiz / "docs" / "relatorios" / "2026-10-10-OC-2" / "tecnico.md",
+                 "---\ntrabalho_id: OC-2\nfechado_em: 2026-10-10\n"
+                 "arquivos_alterados: [src/x.ts]\n---\n")
+        escrever(raiz / "docs" / "manutencao" / "OC-2" / "01-CAUSA-RAIZ.md",
+                 "---\ntrabalho_id: OC-2\nmodo: causa_raiz\ncomprovada: true\n"
+                 "arquivos_impactados: [src/x.ts]\n" + declaracao + "---\n")
+        return memox.construir_indice(str(raiz), memox.CONFIG_PADRAO)
+
+    def test_causa_raiz_que_nega_a_regressao_vira_coincidencia(self):
+        # conselhos#266: regressao_de null, e o indice afirmava a regressao
+        for linha in ("regressao_de: null\nevidencia_regressao: null\n", "regressao_de:\n",
+                      "regressao_de: \"\"\n"):
+            with self.subTest(linha=linha), TemporaryDirectory() as tmp:
+                indice = self._indice_com_declaracao(Path(tmp), linha)
+                self.assertEqual(indice["regressoes"], [])
+                self.assertEqual(indice["sinais"]["arquivo"]["src/x.ts"]["regressoes"], [])
+                motivos = [c["motivo"] for c in indice["coincidencias_arquivo"]]
+                self.assertTrue(any("nega a regressao" in m for m in motivos), motivos)
+
+    def test_causa_raiz_que_nomeia_o_trabalho_mantem_a_regressao(self):
+        with TemporaryDirectory() as tmp:
+            indice = self._indice_com_declaracao(
+                Path(tmp), "regressao_de: OC-1\nevidencia_regressao: \"commit abc do OC-1\"\n")
+            self.assertEqual([(r["trabalho_anterior"], r["trabalho_posterior"])
+                              for r in indice["regressoes"]], [("OC-1", "OC-2")])
+            self.assertEqual(indice["regressoes"][0]["evidencia_declarada"], "commit abc do OC-1")
+
+    def test_causa_raiz_que_nomeia_outro_trabalho_nao_acusa_este(self):
+        with TemporaryDirectory() as tmp:
+            indice = self._indice_com_declaracao(
+                Path(tmp), "regressao_de: OC-9\nevidencia_regressao: \"commit do OC-9\"\n")
+            self.assertEqual(indice["regressoes"], [])
+            motivos = [c["motivo"] for c in indice["coincidencias_arquivo"]]
+            self.assertTrue(any("atribui a regressao a OC-9" in m for m in motivos), motivos)
+
+    def test_causa_raiz_anterior_ao_campo_mantem_a_regra_das_tres_condicoes(self):
+        with TemporaryDirectory() as tmp:
+            indice = self._indice_com_declaracao(Path(tmp), "")
+            self.assertEqual([(r["trabalho_anterior"], r["trabalho_posterior"])
+                              for r in indice["regressoes"]], [("OC-1", "OC-2")])
+
+    def test_regressao_de_de_tipo_invalido_nao_afirma_regressao(self):
+        for valor in ("[OC-1]", "true", "3"):
+            with self.subTest(valor=valor), TemporaryDirectory() as tmp:
+                indice = self._indice_com_declaracao(Path(tmp), "regressao_de: %s\n" % valor)
+                self.assertEqual(indice["regressoes"], [])
+                motivos = [c["motivo"] for c in indice["coincidencias_arquivo"]]
+                self.assertTrue(any("regressao_de invalido" in m for m in motivos), motivos)
+                self.assertIn({"artefato": "docs/manutencao/OC-2/01-CAUSA-RAIZ.md",
+                               "motivo": "regressao_de invalido"}, indice["fora_do_indice"])
+
+    def test_consulta_e_estado_nao_mostram_a_regressao_negada(self):
+        # os consumidores (consulta, promocao por sempre_incluir, estado, E3 da
+        # mergex) leem `sinais`: a regressao negada some de todos
+        with TemporaryDirectory() as tmp:
+            indice = self._indice_com_declaracao(Path(tmp), "regressao_de: null\n")
+            consulta = memox.consultar_arquivo(indice, "src/x.ts", memox.CONFIG_PADRAO)
+            self.assertEqual(consulta["sinais"]["regressoes"], [])
+            self.assertNotIn("regressao", json.dumps(consulta["motivos"]))
+            self.assertEqual(indice["totais"]["regressoes"], 0)
+
+    def test_declaracao_da_causa_raiz_decide_a_regressao(self):
+        # DM-29, pela unidade: as tres condicoes valem; a declaracao de B decide
+        def caso(**declaracao):
+            b = {"trabalho_id": "OC-2", "data": "2026-10-10",
+                 "arquivos_impactados": ["src/x.ts"], "modo": "causa_raiz",
+                 "comprovada": True, "fontes": ["docs/manutencao/OC-2/01-CAUSA-RAIZ.md"]}
+            b.update(declaracao)
+            a = {"trabalho_id": "OC-1", "data": "2026-10-01",
+                 "arquivos_alterados": ["src/x.ts"], "fontes": []}
+            return memox.detectar_regressoes({"OC-1": a, "OC-2": b})
+
+        casos = [
+            ({}, True, None),
+            ({"regressao_declarada": True, "regressao_de": None}, False, "nega a regressao"),
+            ({"regressao_declarada": True, "regressao_de": None,
+              "evidencia_regressao": "commit abc"}, False, "nega a regressao"),
+            ({"regressao_declarada": True, "regressao_de": "OC-1",
+              "evidencia_regressao": "commit abc"}, True, None),
+            ({"regressao_declarada": True, "regressao_de": "OC-9",
+              "evidencia_regressao": "commit abc"}, False, "atribui a regressao a OC-9"),
+            ({"regressao_declarada": True, "regressao_de": "OC-1",
+              "evidencia_regressao": None}, False, "sem evidencia_regressao"),
+            ({"regressao_declarada": True, "regressao_de": "OC-1",
+              "evidencia_regressao": "  "}, False, "sem evidencia_regressao"),
+            ({"regressao_declarada": True, "regressao_de": "OC-1",
+              "evidencia_regressao": ["commit"]}, False, "sem evidencia_regressao"),
+            ({"regressao_declarada": True, "regressao_de": " OC-1",
+              "evidencia_regressao": "commit abc"}, False, "regressao_de invalido"),
+            ({"regressao_declarada": True, "regressao_de": "",
+              "evidencia_regressao": "commit abc"}, False, "nega a regressao"),
+            ({"regressao_declarada": True, "regressao_de": "  ",
+              "evidencia_regressao": "commit abc"}, False, "regressao_de invalido"),
+            ({"regressao_declarada": True, "regressao_de": {"id": "OC-1"},
+              "evidencia_regressao": "commit abc"}, False, "regressao_de invalido"),
+            ({"regressao_declarada": True, "regressao_de": "oc-1",
+              "evidencia_regressao": "commit abc"}, False, "atribui a regressao a oc-1"),
+        ]
+        for declaracao, regressao, motivo in casos:
+            with self.subTest(declaracao=declaracao):
+                regressoes, coincidencias = caso(**declaracao)
+                self.assertEqual(bool(regressoes), regressao)
+                if motivo:
+                    self.assertIn(motivo, coincidencias[0]["motivo"])
+
+    def test_par_promovido_nao_volta_como_coincidencia_inversa(self):
+        # A e B alteram e apontam o mesmo arquivo: B->A seria coincidencia por ordem
+        a = {"trabalho_id": "OC-1", "data": "2026-10-01", "modo": "causa_raiz",
+             "comprovada": True, "arquivos_alterados": ["src/x.ts"],
+             "arquivos_impactados": ["src/x.ts"], "fontes": []}
+        b = {"trabalho_id": "OC-2", "data": "2026-10-10", "modo": "causa_raiz",
+             "comprovada": True, "arquivos_alterados": ["src/x.ts"],
+             "arquivos_impactados": ["src/x.ts"], "fontes": []}
+        regressoes, coincidencias = memox.detectar_regressoes({"OC-1": a, "OC-2": b})
+        self.assertEqual([(r["trabalho_anterior"], r["trabalho_posterior"]) for r in regressoes],
+                         [("OC-1", "OC-2")])
+        self.assertEqual(coincidencias, [])
+        # a inversa com arquivo a mais tambem sai: o par e um so
+        a["arquivos_impactados"] = ["src/x.ts", "src/y.ts"]
+        b["arquivos_alterados"] = ["src/x.ts", "src/y.ts"]
+        regressoes, coincidencias = memox.detectar_regressoes({"OC-1": a, "OC-2": b})
+        self.assertEqual([r["arquivos"] for r in regressoes], [["src/x.ts"]])
+        self.assertEqual(coincidencias, [])
+
+    def test_declaracao_invalida_gera_um_aviso_so(self):
+        # dois trabalhos anteriores no mesmo arquivo: o aviso e do artefato, uma vez
+        with TemporaryDirectory() as tmp:
+            raiz = Path(tmp)
+            escrever(raiz / "docs" / "relatorios" / "2026-10-02-OC-3" / "tecnico.md",
+                     "---\ntrabalho_id: OC-3\nfechado_em: 2026-10-02\n"
+                     "arquivos_alterados: [src/x.ts, src/y.ts]\n---\n")
+            indice = self._indice_com_declaracao(
+                raiz, "regressao_de: \" OC-1\"\nevidencia_regressao: \"commit abc\"\n")
+            self.assertEqual(indice["regressoes"], [])
+            avisos = [f for f in indice["fora_do_indice"]
+                      if f["artefato"] == "docs/manutencao/OC-2/01-CAUSA-RAIZ.md"]
+            self.assertEqual(avisos, [{"artefato": "docs/manutencao/OC-2/01-CAUSA-RAIZ.md",
+                                       "motivo": "regressao_de invalido"}])
+
+    def test_segunda_causa_raiz_do_trabalho_nao_desfaz_a_declaracao(self):
+        # CodeAnt no MemoX#6: a causa raiz sem a chave, lida antes ou depois, nao
+        # desfaz o `null` da outra; duas declaracoes diferentes nao afirmam nada
+        legado = ("---\ntrabalho_id: OC-2\nmodo: causa_raiz\ncomprovada: true\n"
+                  "arquivos_impactados: [src/x.ts]\n---\n")
+        nomeia = legado.replace("---\n", "---\nregressao_de: OC-1\nevidencia_regressao: \"commit abc\"\n", 1)
+        for pasta in ("AAA", "ZZZ"):
+            with self.subTest(pasta=pasta), TemporaryDirectory() as tmp:
+                raiz = Path(tmp)
+                escrever(raiz / "docs" / "manutencao" / pasta / "01-CAUSA-RAIZ.md", legado)
+                indice = self._indice_com_declaracao(raiz, "regressao_de: null\n")
+                self.assertEqual(indice["regressoes"], [])
+                self.assertEqual(indice["trabalhos"]["OC-2"]["regressao_de"], None)
+            with self.subTest(pasta=pasta, divergente=True), TemporaryDirectory() as tmp:
+                raiz = Path(tmp)
+                escrever(raiz / "docs" / "manutencao" / pasta / "01-CAUSA-RAIZ.md", nomeia)
+                indice = self._indice_com_declaracao(raiz, "regressao_de: null\n")
+                self.assertEqual(indice["regressoes"], [])
+                motivos = [f["motivo"] for f in indice["fora_do_indice"]]
+                self.assertIn("regressao_de divergente entre causas raiz do trabalho", motivos)
+            # o mesmo trabalho nas duas, com evidencias diferentes (ou uma sem):
+            # nao e divergencia, e a regressao fica
+            for outra in ("\"commit xyz\"", "null"):
+                with self.subTest(pasta=pasta, evidencia=outra), TemporaryDirectory() as tmp:
+                    raiz = Path(tmp)
+                    escrever(raiz / "docs" / "manutencao" / pasta / "01-CAUSA-RAIZ.md",
+                             nomeia.replace("\"commit abc\"", outra))
+                    indice = self._indice_com_declaracao(
+                        raiz, "regressao_de: OC-1\nevidencia_regressao: \"commit abc\"\n")
+                    self.assertEqual([(r["trabalho_anterior"], r["trabalho_posterior"])
+                                      for r in indice["regressoes"]], [("OC-1", "OC-2")])
+
+    def test_comentario_yaml_no_regressao_de_fica_de_fora(self):
+        # CodeRabbit no MemoX#6: o parser so tira o comentario de linha inteira
+        casos = [
+            ("regressao_de: OC-1 # o commit do OC-1\nevidencia_regressao: \"commit abc\"\n", None),
+            ("regressao_de: null # so coincidencia\n", "nega a regressao"),
+            ("regressao_de: # sem vinculo\n", "nega a regressao"),
+            # entre aspas, `#` e parte do valor: "OC-1 # nota" nao e OC-1
+            ("regressao_de: \"OC-1 # nota\"\nevidencia_regressao: \"commit abc\"\n",
+             "atribui a regressao a OC-1 # nota"),
+            # o comentario DEPOIS da aspa que fecha sai (CodeRabbit no MemoX#6)
+            ("regressao_de: \"OC-1\" # commit abc\nevidencia_regressao: \"commit abc\"\n", None),
+            ("regressao_de: 'OC-1' # commit abc\nevidencia_regressao: \"commit abc\"\n", None),
+            # a aspa escapada nao fecha: o valor e OC-\"1 #, e nao OC-
+            ("regressao_de: \"OC-\\\"1 # x\" # nota\nevidencia_regressao: \"commit abc\"\n",
+             "atribui a regressao a OC-\\\"1 # x"),
+            # espaco antes do `:`, como o parser aceita (CodeRabbit no MemoX#6)
+            ("regressao_de : \"OC-1\" # commit abc\nevidencia_regressao: \"commit abc\"\n", None),
+            # o que sobra do comentario mantem o tipo: `3` e inteiro, invalido
+            ("regressao_de: 3 # nota\nevidencia_regressao: \"commit abc\"\n", "regressao_de invalido"),
+            # sem espaco antes do `#`, nao e comentario
+            ("regressao_de: \"OC-1\"#nota\nevidencia_regressao: \"commit abc\"\n",
+             "atribui a regressao a \"OC-1\"#nota"),
+        ]
+        for linha, motivo in casos:
+            with self.subTest(linha=linha), TemporaryDirectory() as tmp:
+                indice = self._indice_com_declaracao(Path(tmp), linha)
+                self.assertEqual(bool(indice["regressoes"]), motivo is None)
+                if motivo:
+                    motivos = [c["motivo"] for c in indice["coincidencias_arquivo"]]
+                    self.assertTrue(any(motivo in m for m in motivos), motivos)
+
+    def test_indice_de_versao_anterior_nao_e_carregado(self):
+        # o indice gravado pela regra antiga traria a regressao negada
+        with TemporaryDirectory() as tmp:
+            raiz = Path(tmp)
+            indice = self._indice_com_declaracao(raiz, "regressao_de: null\n")
+            memox.gravar_indice(str(raiz), indice)
+            self.assertIsNotNone(memox.carregar_indice(str(raiz)))
+            caminho = raiz / ".expx" / "memoria" / "indice.json"
+            antigo = json.loads(caminho.read_text(encoding="utf-8"))
+            antigo["versao"] = 1
+            caminho.write_text(json.dumps(antigo), encoding="utf-8")
+            self.assertIsNone(memox.carregar_indice(str(raiz)))
+            self.assertTrue(memox.precisa_reindexar(str(raiz), memox.CONFIG_PADRAO))
+
     def test_fonte_alterada_durante_coleta_dispara_reindexacao(self):
         with TemporaryDirectory() as tmp:
             raiz = Path(tmp)
