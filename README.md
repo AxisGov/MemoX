@@ -1,29 +1,29 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/bittencourtthulio/MemoX/main/.github/assets/banner-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/bittencourtthulio/MemoX/main/.github/assets/banner-light.svg">
-  <img alt="memox — a camada de memoria do metodo Expx" src="https://raw.githubusercontent.com/bittencourtthulio/MemoX/main/.github/assets/banner-light.svg" width="100%">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/AxisGov/MemoX/main/.github/assets/banner-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/AxisGov/MemoX/main/.github/assets/banner-light.svg">
+  <img alt="memox — a camada de memoria do metodo Expx" src="https://raw.githubusercontent.com/AxisGov/MemoX/main/.github/assets/banner-light.svg" width="100%">
 </picture>
 
 <p>
-  <img alt="harness: Claude Code" src="https://raw.githubusercontent.com/bittencourtthulio/MemoX/main/.github/assets/badge-claude.svg">
-  <img alt="harness: OpenCode" src="https://raw.githubusercontent.com/bittencourtthulio/MemoX/main/.github/assets/badge-opencode.svg">
-  <img alt="memoria: indice invertido" src="https://raw.githubusercontent.com/bittencourtthulio/MemoX/main/.github/assets/badge-indice.svg">
-  <img alt="embedding: nenhum" src="https://raw.githubusercontent.com/bittencourtthulio/MemoX/main/.github/assets/badge-embedding.svg">
-  <img alt="schema expx v1" src="https://raw.githubusercontent.com/bittencourtthulio/MemoX/main/.github/assets/badge-schema.svg">
-  <img alt="docs pt-BR" src="https://raw.githubusercontent.com/bittencourtthulio/MemoX/main/.github/assets/badge-lang.svg">
-  <img alt="licenca MIT" src="https://raw.githubusercontent.com/bittencourtthulio/MemoX/main/.github/assets/badge-license.svg">
+  <img alt="harness: Claude Code" src="https://raw.githubusercontent.com/AxisGov/MemoX/main/.github/assets/badge-claude.svg">
+  <img alt="harness: OpenCode" src="https://raw.githubusercontent.com/AxisGov/MemoX/main/.github/assets/badge-opencode.svg">
+  <img alt="memoria: indice invertido" src="https://raw.githubusercontent.com/AxisGov/MemoX/main/.github/assets/badge-indice.svg">
+  <img alt="embedding: nenhum" src="https://raw.githubusercontent.com/AxisGov/MemoX/main/.github/assets/badge-embedding.svg">
+  <img alt="schema expx v1" src="https://raw.githubusercontent.com/AxisGov/MemoX/main/.github/assets/badge-schema.svg">
+  <img alt="docs pt-BR" src="https://raw.githubusercontent.com/AxisGov/MemoX/main/.github/assets/badge-lang.svg">
+  <img alt="licenca MIT" src="https://raw.githubusercontent.com/AxisGov/MemoX/main/.github/assets/badge-license.svg">
 </p>
 
 <p>
-  <a href="https://bittencourtthulio.github.io/expxdev/#memox"><strong>📘 Documentação do método</strong></a>
+  <a href="https://axisgov.github.io/expxdev/#memox"><strong>📘 Documentação do método</strong></a>
   &nbsp;·&nbsp;
-  <a href="https://bittencourtthulio.github.io/expxdev/#memox">O índice</a>
+  <a href="https://axisgov.github.io/expxdev/#memox">O índice</a>
   &nbsp;·&nbsp;
-  <a href="https://bittencourtthulio.github.io/expxdev/#ecossistema">O ecossistema</a>
+  <a href="https://axisgov.github.io/expxdev/#ecossistema">O ecossistema</a>
   &nbsp;·&nbsp;
-  <a href="https://bittencourtthulio.github.io/expxdev/#schema">Contratos</a>
+  <a href="https://axisgov.github.io/expxdev/#schema">Contratos</a>
 </p>
 
 <strong>A camada de memória do método Expx</strong> — entrega o que o projeto já sabe<br>
@@ -40,23 +40,23 @@ sobre um arquivo antes do plano existir, para <a href="https://claude.com/claude
 
 ## O ecossistema Expx
 
-O método Expx é um conjunto de skills que se compõem, instaladas e mantidas pelo CLI [`expxdev`](https://github.com/bittencourtthulio/expxdev).
+O método Expx é um conjunto de skills que se compõem, instaladas e mantidas pelo CLI [`expxdev`](https://github.com/AxisGov/expxdev).
 
 | Peça | Papel | Relação com a `memox` |
 |---|---|---|
-| **[expxdev](https://github.com/bittencourtthulio/expxdev)** | o CLI: instala, atualiza e diagnostica o ecossistema, e sobe o painel de operação | é quem instala esta skill (`npx expxdev init`) |
-| **[sprintx](https://github.com/bittencourtthulio/sprintx)** | **Build** — feature nova, F1…F6 | consulta na F1 e na F3, sobre os arquivos que o plano pretende tocar |
-| **[runx](https://github.com/bittencourtthulio/runx)** | **Run** — ocorrência em produção, E1…E5 | consulta na E1 sobre os arquivos impactados; dispara reindexação na E5 |
-| **[legadox](https://github.com/bittencourtthulio/legadox)** | **camada** de segurança para código legado | consome regressão e reprovação em QA como entrada do cálculo de raio |
-| **[stackx](https://github.com/bittencourtthulio/stackx)** | **camada** de convenções do repositório | fonte independente: as convenções não entram no índice |
-| **[mergex](https://github.com/bittencourtthulio/mergex)** | entrega: branch, commit por task, PR e pacote de QA | arquivo com histórico de regressão sobe de faixa de atenção |
-| **[prodx](https://github.com/bittencourtthulio/prodx)** | **camada** de produto: decide **se** há trabalho | o índice indexa o `INDICE.md` e os vereditos; é o que faz a verificação de existência melhorar com o tempo |
-| **[buildx](https://github.com/bittencourtthulio/buildx)** | orquestra um projeto inteiro, da descrição ao sistema pronto | consulta o índice no B5, para não repetir uma tentativa que já falhou; projeto que ela cria nasce com a suíte instalada, então o índice existe desde o primeiro commit — quando mais se decide coisa |
+| **[expxdev](https://github.com/AxisGov/expxdev)** | o CLI: instala, atualiza e diagnostica o ecossistema, e sobe o painel de operação | é quem instala esta skill (`expx init`) |
+| **[sprintx](https://github.com/AxisGov/sprintx)** | **Build** — feature nova, F1…F6 | consulta na F1 e na F3, sobre os arquivos que o plano pretende tocar |
+| **[runx](https://github.com/AxisGov/runx)** | **Run** — ocorrência em produção, E1…E5 | consulta na E1 sobre os arquivos impactados; dispara reindexação na E5 |
+| **[legadox](https://github.com/AxisGov/legadox)** | **camada** de segurança para código legado | consome regressão e reprovação em QA como entrada do cálculo de raio |
+| **[stackx](https://github.com/AxisGov/stackx)** | **camada** de convenções do repositório | fonte independente: as convenções não entram no índice |
+| **[mergex](https://github.com/AxisGov/mergex)** | entrega: branch, commit por task, PR e pacote de QA | arquivo com histórico de regressão sobe de faixa de atenção |
+| **[prodx](https://github.com/AxisGov/prodx)** | **camada** de produto: decide **se** há trabalho | o índice indexa o `INDICE.md` e os vereditos; é o que faz a verificação de existência melhorar com o tempo |
+| **[buildx](https://github.com/AxisGov/buildx)** | orquestra um projeto inteiro, da descrição ao sistema pronto | consulta o índice no B5, para não repetir uma tentativa que já falhou; projeto que ela cria nasce com a suíte instalada, então o índice existe desde o primeiro commit — quando mais se decide coisa |
 | **memox** *(este repositório)* | **camada** de memória do projeto | — |
 
 **Camadas** (`memox`, `stackx`, `legadox`, `prodx`) sozinhas não fazem nada — elas modificam o comportamento da `sprintx`, da `runx` e da `mergex`. Sem índice construído, nada muda: as irmãs se comportam como se comportariam sem esta skill. A `buildx` é a exceção na direção oposta: é a única peça que **depende** de outras para rodar — a `memox` continua opcional para ela, e sua ausência só faz o B5 perder a consulta.
 
-Detalhes do ecossistema inteiro no [README do expxdev](https://github.com/bittencourtthulio/expxdev).
+Detalhes do ecossistema inteiro no [README do expxdev](https://github.com/AxisGov/expxdev).
 
 ---
 
@@ -71,9 +71,9 @@ O que falta é ele **chegar na hora certa, sem alguém precisar lembrar de procu
 Essa é a assimetria que o memox resolve: quem lembra do bug antigo já não precisava da consulta; quem não lembra não sabe que deveria perguntar. Memória que precisa ser consultada não é usada.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/bittencourtthulio/MemoX/main/assets/memox-fluxo-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/bittencourtthulio/MemoX/main/assets/memox-fluxo.svg">
-  <img alt="Fluxo do memox: à esquerda, os artefatos gravados por runx, sprintx, mergex e legadox; ao centro, o índice sendo construído a partir deles, com as chaves por arquivo, módulo, decisão e termo e os sinais derivados, entre os quais o de regressão; à direita, a injeção chegando no momento em que um trabalho declara os arquivos que vai tocar, e o sinal de regressão alimentando o cálculo de raio da legadox." src="https://raw.githubusercontent.com/bittencourtthulio/MemoX/main/assets/memox-fluxo.svg" width="100%">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/AxisGov/MemoX/main/assets/memox-fluxo-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/AxisGov/MemoX/main/assets/memox-fluxo.svg">
+  <img alt="Fluxo do memox: à esquerda, os artefatos gravados por runx, sprintx, mergex e legadox; ao centro, o índice sendo construído a partir deles, com as chaves por arquivo, módulo, decisão e termo e os sinais derivados, entre os quais o de regressão; à direita, a injeção chegando no momento em que um trabalho declara os arquivos que vai tocar, e o sinal de regressão alimentando o cálculo de raio da legadox." src="https://raw.githubusercontent.com/AxisGov/MemoX/main/assets/memox-fluxo.svg" width="100%">
 </picture>
 
 ## Por que índice, e não RAG
@@ -116,11 +116,13 @@ O memox não tem fluxo próprio: ele produz um índice que as outras skills cons
 
 ### Pelo CLI do método (recomendado)
 
-O [`expxdev`](https://github.com/bittencourtthulio/expxdev) instala o memox por completo — a
+O [`expxdev`](https://github.com/AxisGov/expxdev) instala o memox por completo — a
 skill, os comandos, os dois hooks com bit de execução e o registro em `.claude/settings.json`:
 
+Com o CLI `expx` instalado pela [release do expxdev](https://github.com/AxisGov/expxdev#instalar-a-partir-da-release):
+
 ```bash
-npx expxdev init --skills sprintx,memox
+expx init --skills sprintx,memox
 ```
 
 O CLI trata o memox como **camada**: sozinho ele não faz nada, então precisa vir acompanhado de
@@ -134,10 +136,10 @@ Duas coisas que o CLI garante e que a instalação manual erra com facilidade:
 - **o registro é idempotente.** Rodar o `init` de novo não duplica a entrada do hook, o que
   faria o memox rodar duas vezes por prompt.
 
-`npx expxdev doctor` acusa `memox-sem-motor` se essa relação quebrar — é o único jeito de ver
+`expx doctor` acusa `memox-sem-motor` se essa relação quebrar — é o único jeito de ver
 uma instalação quebrada, já que o hook falha em silêncio por projeto.
 
-O painel (`npx expxdev panel`) lê o índice e mostra, na seção **Memória**, os arquivos de
+O painel (`expx panel`) lê o índice e mostra, na seção **Memória**, os arquivos de
 risco, as regressões com sua evidência, as coincidências recusadas e os artefatos contaminados.
 
 ### Claude Code (manual)
@@ -377,12 +379,12 @@ As três condições da regra de regressão não se flexibilizam sem o caso de u
 
 <div align="center">
 <sub>Parte do método <strong>Expx</strong> ·
-<a href="https://github.com/bittencourtthulio/expxdev">expxdev</a> ·
-<a href="https://github.com/bittencourtthulio/buildx">buildx</a> ·
-<a href="https://github.com/bittencourtthulio/sprintx">sprintx</a> ·
-<a href="https://github.com/bittencourtthulio/runx">runx</a> ·
-<a href="https://github.com/bittencourtthulio/legadox">legadox</a> ·
-<a href="https://github.com/bittencourtthulio/stackx">stackx</a> ·
-<a href="https://github.com/bittencourtthulio/mergex">mergex</a> ·
+<a href="https://github.com/AxisGov/expxdev">expxdev</a> ·
+<a href="https://github.com/AxisGov/buildx">buildx</a> ·
+<a href="https://github.com/AxisGov/sprintx">sprintx</a> ·
+<a href="https://github.com/AxisGov/runx">runx</a> ·
+<a href="https://github.com/AxisGov/legadox">legadox</a> ·
+<a href="https://github.com/AxisGov/stackx">stackx</a> ·
+<a href="https://github.com/AxisGov/mergex">mergex</a> ·
 memox</sub>
 </div>
